@@ -1,0 +1,42 @@
+Explicación de las tablas de la base de datos de SERSA
+
+Lo podemos dividir por las áreas principales de la aplicación:
+
+### 1. Usuarios y Perfiles (Quiénes usan la app)
+* User (Usuario): Es la cuenta base para poder iniciar sesión. Aquí se guarda el correo, contraseña y el rol (si es Paciente, Enfermero o Administrador).
+* PatientProfile (Perfil de Paciente): Detalles médicos rápidos del paciente (fecha de nacimiento, contacto de emergencia, notas médicas generales).
+* NurseProfile (Perfil de Enfermero): Información profesional del enfermero (años de experiencia, biografía, calificación por estrellas, si está disponible para trabajar).
+* AdminProfile (Perfil de Administrador): Datos del personal de soporte que opera la plataforma.
+* NurseCredential y NurseCredentialReview: Aquí se guardan los archivos PDF o fotos de la Cédula Profesional y el Título del enfermero, así como el registro de si un administrador ya los revisó y aprobó.
+
+### 2. Catálogo de Servicios (Qué se vende)
+* ServiceCategory (Categoría de Servicio): Agrupaciones principales, por ejemplo: "Inyecciones", "Curaciones", "Toma de Muestras".
+* Service (Servicio): El servicio específico. Por ejemplo: "Inyección Intramuscular", con su precio base, duración estimada y si requiere receta médica obligatoria.
+* ServicePricingRule (Reglas de Precio): Modificadores automáticos de precio. Por ejemplo, cobrar un 20% más si es horario nocturno, fin de semana o día festivo.
+
+### 3. Solicitudes y Citas (El "Viaje" o "Pedido")
+* ServiceRequest (Solicitud de Servicio): Es el corazón de la app. Es el equivalente a pedir un Uber. Guarda quién pidió el servicio, a dónde, qué enfermero aceptó ir, a qué hora llegó y el costo total.
+* ServiceRequestItem (Conceptos del Servicio): El detalle de lo que se pidió en esa solicitud (ej. 2 inyecciones y 1 toma de glucosa).
+* ServiceRequestAttachment (Archivos Adjuntos): Las fotos de las recetas médicas o estudios clínicos que el paciente sube al pedir el servicio.
+* Address (Direcciones): Los domicilios guardados de los pacientes (Ej. "Casa", "Trabajo") junto con su punto exacto en el mapa (GPS).
+
+### 4. Geolocalización y Rutas (El mapa en tiempo real)
+* ServiceRequestVisibility: Un registro interno de a qué enfermeros cercanos se les hizo "sonar" el teléfono cuando cayó un nuevo servicio.
+* NurseLocationPing (Rastreo GPS): Guarda el historial del GPS del enfermero segundo a segundo mientras va en camino a la casa del paciente para calcular a qué hora llega.
+* DailyRoute y RouteStop: Si un enfermero tiene varios servicios programados en el día, esto organiza su ruta óptima y las paradas que debe hacer.
+
+### 5. Reporte Clínico (Al terminar el servicio)
+* ClinicalReport (Reporte Clínico): Las notas que escribe el enfermero al terminar el servicio (cómo vio la herida, recomendaciones, procedimientos realizados).
+* VitalSignsRecord (Signos Vitales): Los números exactos tomados durante la visita (presión arterial, glucosa, temperatura, oxigenación).
+* DigitalSignature (Firma Digital): El "garabato" que hace el paciente en la pantalla del celular del enfermero confirmando que sí recibió la atención.
+
+### 6. Finanzas y Pagos (El Dinero)
+* Payment (Pago): El cobro realizado a la tarjeta de crédito/débito del paciente.
+* NurseWallet (Billetera del Enfermero): El saldo virtual donde el enfermero puede ver cuánto dinero lleva ganado.
+* WalletTransaction (Transacciones): El recibo detallado (ej. "+$500 por servicio, -$75 de comisión de SERSA").
+* NursePayoutMethod y WithdrawalRequest: La cuenta CLABE del enfermero y el registro de cuando le dan al botón "Retirar mi dinero al banco".
+
+### 7. Comunicación y Extras
+* Conversation y Message: El chat interno donde platican el enfermero y el paciente.
+* Notification: El historial de notificaciones tipo "Push" que se mandan a los celulares (Ej. "Tu enfermero está a 5 minutos").
+* Dispute (Disputas): Si hay algún problema (ej. el enfermero no llegó o el paciente canceló tarde), aquí se abre un ticket de soporte.

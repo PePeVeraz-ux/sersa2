@@ -1,0 +1,248 @@
+import { ClinicalReportsService } from './clinical-reports.service';
+export declare class ClinicalReportsController {
+    private readonly clinicalReportsService;
+    constructor(clinicalReportsService: ClinicalReportsService);
+    createReport(req: any, data: any): Promise<{
+        id: string;
+        service_request_id: string;
+        nurse_user_id: string;
+        observations: string;
+        wound_status: string | null;
+        procedures_done: string | null;
+        recommendations: string | null;
+        created_at: Date;
+        updated_at: Date;
+    }>;
+    getMyReports(req: any): Promise<({
+        vital_signs_records: {
+            id: string;
+            clinical_report_id: string;
+            blood_pressure_sys: number | null;
+            blood_pressure_dia: number | null;
+            heart_rate_bpm: number | null;
+            temperature_c: import("@prisma/client/runtime/library").Decimal | null;
+            glucose_mg_dl: import("@prisma/client/runtime/library").Decimal | null;
+            oxygen_saturation: import("@prisma/client/runtime/library").Decimal | null;
+            respiratory_rate: number | null;
+            recorded_at: Date;
+        }[];
+        service_request: {
+            patient: {
+                patient_profile: {
+                    user_id: string;
+                    first_name: string;
+                    last_name: string;
+                    second_last_name: string | null;
+                    date_of_birth: Date | null;
+                    gender: string | null;
+                    emergency_contact_name: string | null;
+                    emergency_contact_phone: string | null;
+                    medical_notes: string | null;
+                    created_at: Date;
+                    updated_at: Date;
+                } | null;
+            } & {
+                id: string;
+                email: string;
+                password_hash: string | null;
+                role: import(".prisma/client").$Enums.Role;
+                status: import(".prisma/client").$Enums.UserStatus;
+                phone: string | null;
+                phone_verified_at: Date | null;
+                email_verified_at: Date | null;
+                last_login_at: Date | null;
+                profile_photo_url: string | null;
+                preferred_locale: string;
+                timezone: string;
+                created_at: Date;
+                updated_at: Date;
+                deleted_at: Date | null;
+            };
+            items: ({
+                service: {
+                    id: string;
+                    category_id: string;
+                    name: string;
+                    slug: string;
+                    description: string;
+                    base_price: import("@prisma/client/runtime/library").Decimal;
+                    estimated_duration_min: number;
+                    icon_key: string | null;
+                    requires_prescription: boolean;
+                    is_active: boolean;
+                    created_at: Date;
+                    updated_at: Date;
+                };
+            } & {
+                id: string;
+                service_request_id: string;
+                service_id: string;
+                quantity: number;
+                unit_price: import("@prisma/client/runtime/library").Decimal;
+                line_total: import("@prisma/client/runtime/library").Decimal;
+                pricing_rule_id: string | null;
+                created_at: Date;
+            })[];
+        } & {
+            id: string;
+            patient_user_id: string;
+            assigned_nurse_id: string | null;
+            address_id: string;
+            operational_zone_id: string | null;
+            request_type: import(".prisma/client").$Enums.RequestType;
+            status: import(".prisma/client").$Enums.RequestStatus;
+            scheduled_start_at: Date | null;
+            scheduled_end_at: Date | null;
+            published_at: Date | null;
+            accepted_at: Date | null;
+            started_at: Date | null;
+            completed_at: Date | null;
+            cancelled_at: Date | null;
+            cancellation_reason: string | null;
+            patient_notes: string | null;
+            subtotal_amount: import("@prisma/client/runtime/library").Decimal;
+            surcharge_amount: import("@prisma/client/runtime/library").Decimal;
+            total_amount: import("@prisma/client/runtime/library").Decimal;
+            currency_code: string;
+            created_at: Date;
+            updated_at: Date;
+        };
+    } & {
+        id: string;
+        service_request_id: string;
+        nurse_user_id: string;
+        observations: string;
+        wound_status: string | null;
+        procedures_done: string | null;
+        recommendations: string | null;
+        created_at: Date;
+        updated_at: Date;
+    })[]>;
+    getReportByRequest(req: any, requestId: string): Promise<{
+        vital_signs_records: {
+            id: string;
+            clinical_report_id: string;
+            blood_pressure_sys: number | null;
+            blood_pressure_dia: number | null;
+            heart_rate_bpm: number | null;
+            temperature_c: import("@prisma/client/runtime/library").Decimal | null;
+            glucose_mg_dl: import("@prisma/client/runtime/library").Decimal | null;
+            oxygen_saturation: import("@prisma/client/runtime/library").Decimal | null;
+            respiratory_rate: number | null;
+            recorded_at: Date;
+        }[];
+        service_request: {
+            address: {
+                id: string;
+                user_id: string;
+                label: import(".prisma/client").$Enums.AddressLabel;
+                custom_label: string | null;
+                street_line1: string;
+                street_line2: string | null;
+                neighborhood: string | null;
+                city: string;
+                state: string | null;
+                postal_code: string;
+                country_code: string;
+                references_text: string | null;
+                operational_zone_id: string | null;
+                is_default: boolean;
+                created_at: Date;
+                updated_at: Date;
+                deleted_at: Date | null;
+            };
+            items: ({
+                service: {
+                    id: string;
+                    category_id: string;
+                    name: string;
+                    slug: string;
+                    description: string;
+                    base_price: import("@prisma/client/runtime/library").Decimal;
+                    estimated_duration_min: number;
+                    icon_key: string | null;
+                    requires_prescription: boolean;
+                    is_active: boolean;
+                    created_at: Date;
+                    updated_at: Date;
+                };
+            } & {
+                id: string;
+                service_request_id: string;
+                service_id: string;
+                quantity: number;
+                unit_price: import("@prisma/client/runtime/library").Decimal;
+                line_total: import("@prisma/client/runtime/library").Decimal;
+                pricing_rule_id: string | null;
+                created_at: Date;
+            })[];
+            assigned_nurse: ({
+                nurse_profile: {
+                    user_id: string;
+                    first_name: string;
+                    last_name: string;
+                    second_last_name: string | null;
+                    professional_license: string;
+                    license_state: string | null;
+                    bio: string | null;
+                    years_experience: number | null;
+                    is_available: boolean;
+                    average_rating: import("@prisma/client/runtime/library").Decimal | null;
+                    total_services: number;
+                    wallet_id: string | null;
+                    created_at: Date;
+                    updated_at: Date;
+                } | null;
+            } & {
+                id: string;
+                email: string;
+                password_hash: string | null;
+                role: import(".prisma/client").$Enums.Role;
+                status: import(".prisma/client").$Enums.UserStatus;
+                phone: string | null;
+                phone_verified_at: Date | null;
+                email_verified_at: Date | null;
+                last_login_at: Date | null;
+                profile_photo_url: string | null;
+                preferred_locale: string;
+                timezone: string;
+                created_at: Date;
+                updated_at: Date;
+                deleted_at: Date | null;
+            }) | null;
+        } & {
+            id: string;
+            patient_user_id: string;
+            assigned_nurse_id: string | null;
+            address_id: string;
+            operational_zone_id: string | null;
+            request_type: import(".prisma/client").$Enums.RequestType;
+            status: import(".prisma/client").$Enums.RequestStatus;
+            scheduled_start_at: Date | null;
+            scheduled_end_at: Date | null;
+            published_at: Date | null;
+            accepted_at: Date | null;
+            started_at: Date | null;
+            completed_at: Date | null;
+            cancelled_at: Date | null;
+            cancellation_reason: string | null;
+            patient_notes: string | null;
+            subtotal_amount: import("@prisma/client/runtime/library").Decimal;
+            surcharge_amount: import("@prisma/client/runtime/library").Decimal;
+            total_amount: import("@prisma/client/runtime/library").Decimal;
+            currency_code: string;
+            created_at: Date;
+            updated_at: Date;
+        };
+    } & {
+        id: string;
+        service_request_id: string;
+        nurse_user_id: string;
+        observations: string;
+        wound_status: string | null;
+        procedures_done: string | null;
+        recommendations: string | null;
+        created_at: Date;
+        updated_at: Date;
+    }>;
+}

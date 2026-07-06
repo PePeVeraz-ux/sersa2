@@ -1,0 +1,834 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// CONFIGURACIÓN DE PLATAFORMA Y ZONAS
+// -----------------------------------------------------------------------------
+model PlatformSetting {
+  id                      String                  @id @default(uuid()) @db.VarChar(36)
+  is_active               Boolean                 @default(true)
+  coverage_radius_km      Decimal                 @default(15.00) @db.Decimal(6, 2)
+  platform_commission_pct Decimal                 @default(15.00) @db.Decimal(5, 2)
+  currency_code           String                  @default("MXN") @db.Char(3)
+  pilot_city              String                  @default("Ciudad de México") @db.VarChar(120)
+  pilot_state             String?                 @db.VarChar(80)
+  pilot_country           String                  @default("MX") @db.Char(2)
+  pilot_area              Unsupported("POLYGON")?
+  min_app_version         String?                 @db.VarChar(20)
+  support_email           String?                 @db.VarChar(255)
+  created_at              DateTime                @default(now())
+  updated_at              DateTime                @updatedAt
+
+  @@map("platform_settings")
+}
+
+model OperationalZone {
+  id           String                 @id @default(uuid()) @db.VarChar(36)
+  name         String                 @db.VarChar(120)
+  city         String                 @db.VarChar(120)
+  state        String?                @db.VarChar(80)
+  country_code String                 @default("MX") @db.Char(2)
+  boundary     Unsupported("POLYGON")
+  is_active    Boolean                @default(true)
+  created_at   DateTime               @default(now())
+  updated_at   DateTime               @updatedAt
+
+  addresses Address[]
+  requests  ServiceRequest[]
+
+  @@unique([name, city, state])
+  @@map("operational_zones")
+}
+
+// -----------------------------------------------------------------------------
+// USUARIOS Y AUTENTICACIÓN
+// -----------------------------------------------------------------------------
+enum Role {
+  patient
+  nurse
+  admin
+}
+
+enum UserStatus {
+  pending_verification
+  active
+  suspended
+  rejected
+}
+
+model User {
+  id                String     @id @default(uuid()) @db.VarChar(36)
+  email             String     @unique @db.VarChar(255)
+  password_hash     String?    @db.Text
+  role              Role
+  status            UserStatus @default(pending_verification)
+  phone             String?    @db.VarChar(20)
+  phone_verified_at DateTime?
+  email_verified_at DateTime?
+  last_login_at     DateTime?
+  profile_photo_url String?    @db.Text
+  preferred_locale  String     @default("es-MX") @db.VarChar(10)
+  timezone          String     @default("America/Mexico_City") @db.VarChar(50)
+  created_at        DateTime   @default(now())
+  updated_at        DateTime   @updatedAt
+  deleted_at        DateTime?
+
+  patient_profile    PatientProfile?
+  nurse_profile      NurseProfile?
+  admin_profile      AdminProfile?
+  addresses          Address[]
+  nurse_wallet       NurseWallet?
+  credentials        NurseCredential[]
+  credential_reviews NurseCredentialReview[]
+  attachments        ServiceRequestAttachment[]
+  status_history     ServiceRequestStatusHistory[]
+  visibility         ServiceRequestVisibility[]
+  daily_routes       DailyRoute[]
+  location_pings     NurseLocationPing[]
+  clinical_reports   ClinicalReport[]
+  digital_signatures DigitalSignature[]
+  payments           Payment[]
+  payout_methods     NursePayoutMethod[]
+  messages           Message[]
+  notifications      Notification[]
+  audit_logs         AuditLog[]
+
+  patient_requests   ServiceRequest[]           @relation("PatientRequests")
+  assigned_requests  ServiceRequest[]           @relation("AssignedRequests")
+  nurse_relations    NursePatientRelationship[] @relation("NurseRelations")
+  patient_relations  NursePatientRelationship[] @relation("PatientRelations")
+  opened_disputes    Dispute[]                  @relation("DisputeOpener")
+  assigned_disputes  Dispute[]                  @relation("DisputeAssignee")
+  availability_slots NurseAvailabilitySlot[]
+
+  @@index([role, status, deleted_at])
+  @@map("users")
+}
+
+model PatientProfile {
+  user_id                 String    @id @db.VarChar(36)
+  first_name              String    @db.VarChar(80)
+  last_name               String    @db.VarChar(80)
+  second_last_name        String?   @db.VarChar(80)
+  date_of_birth           DateTime? @db.Date
+  gender                  String?   @db.VarChar(30)
+  emergency_contact_name  String?   @db.VarChar(160)
+  emergency_contact_phone String?   @db.VarChar(20)
+  medical_notes           String?   @db.Text
+  created_at              DateTime  @default(now())
+  updated_at              DateTime  @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("patient_profiles")
+}
+
+model NurseWallet {
+  id              String   @id @default(uuid()) @db.VarChar(36)
+  nurse_user_id   String   @unique @db.VarChar(36)
+  balance         Decimal  @default(0) @db.Decimal(12, 2)
+  pending_balance Decimal  @default(0) @db.Decimal(12, 2)
+  currency_code   String   @default("MXN") @db.Char(3)
+  updated_at      DateTime @updatedAt
+
+  user         User                @relation(fields: [nurse_user_id], references: [id], onDelete: Cascade)
+  profile      NurseProfile?
+  transactions WalletTransaction[]
+  withdrawals  WithdrawalRequest[]
+
+  @@map("nurse_wallets")
+}
+
+model NurseProfile {
+  user_id              String   @id @db.VarChar(36)
+  first_name           String   @db.VarChar(80)
+  last_name            String   @db.VarChar(80)
+  second_last_name     String?  @db.VarChar(80)
+  professional_license String   @db.VarChar(40)
+  license_state        String?  @db.VarChar(80)
+  bio                  String?  @db.Text
+  years_experience     Int?     @db.SmallInt
+  is_available         Boolean  @default(false)
+  average_rating       Decimal? @default(0) @db.Decimal(3, 2)
+  total_services       Int      @default(0)
+  wallet_id            String?  @unique @db.VarChar(36)
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  user   User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  wallet NurseWallet? @relation(fields: [wallet_id], references: [id])
+
+  @@map("nurse_profiles")
+}
+
+model AdminProfile {
+  user_id    String   @id @db.VarChar(36)
+  first_name String   @db.VarChar(80)
+  last_name  String   @db.VarChar(80)
+  department String?  @db.VarChar(80)
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("admin_profiles")
+}
+
+enum DocumentType {
+  professional_license
+  degree_title
+}
+
+enum ReviewStatus {
+  pending
+  approved
+  rejected
+}
+
+model NurseCredential {
+  id               String       @id @default(uuid()) @db.VarChar(36)
+  nurse_user_id    String       @db.VarChar(36)
+  document_type    DocumentType
+  file_url         String       @db.Text
+  file_hash        String?      @db.VarChar(64)
+  issued_at        DateTime?    @db.Date
+  expires_at       DateTime?    @db.Date
+  review_status    ReviewStatus @default(pending)
+  reviewed_by      String?      @db.VarChar(36)
+  reviewed_at      DateTime?
+  rejection_reason String?      @db.Text
+  created_at       DateTime     @default(now())
+
+  user    User                    @relation(fields: [nurse_user_id], references: [id], onDelete: Cascade)
+  reviews NurseCredentialReview[]
+
+  @@unique([nurse_user_id, document_type])
+  @@index([review_status])
+  @@map("nurse_credentials")
+}
+
+model NurseCredentialReview {
+  id              String       @id @default(uuid()) @db.VarChar(36)
+  credential_id   String       @db.VarChar(36)
+  reviewer_id     String       @db.VarChar(36)
+  previous_status ReviewStatus
+  new_status      ReviewStatus
+  notes           String?      @db.Text
+  created_at      DateTime     @default(now())
+
+  credential NurseCredential @relation(fields: [credential_id], references: [id], onDelete: Cascade)
+  reviewer   User            @relation(fields: [reviewer_id], references: [id])
+
+  @@map("nurse_credential_reviews")
+}
+
+// -----------------------------------------------------------------------------
+// DIRECCIONES FRECUENTES
+// -----------------------------------------------------------------------------
+enum AddressLabel {
+  home
+  work
+  other
+}
+
+model Address {
+  id                  String               @id @default(uuid()) @db.VarChar(36)
+  user_id             String               @db.VarChar(36)
+  label               AddressLabel         @default(home)
+  custom_label        String?              @db.VarChar(60)
+  street_line1        String               @db.VarChar(200)
+  street_line2        String?              @db.VarChar(120)
+  neighborhood        String?              @db.VarChar(120)
+  city                String               @db.VarChar(120)
+  state               String?              @db.VarChar(80)
+  postal_code         String               @db.VarChar(12)
+  country_code        String               @default("MX") @db.Char(2)
+  references_text     String?              @db.Text
+  location            Unsupported("POINT")
+  operational_zone_id String?              @db.VarChar(36)
+  is_default          Boolean              @default(false)
+  created_at          DateTime             @default(now())
+  updated_at          DateTime             @updatedAt
+  deleted_at          DateTime?
+
+  user             User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  operational_zone OperationalZone? @relation(fields: [operational_zone_id], references: [id])
+  service_requests ServiceRequest[]
+
+  @@index([user_id, deleted_at])
+  @@map("addresses")
+}
+
+// -----------------------------------------------------------------------------
+// CATÁLOGO DE SERVICIOS
+// -----------------------------------------------------------------------------
+model ServiceCategory {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  name        String   @unique @db.VarChar(80)
+  slug        String   @unique @db.VarChar(80)
+  description String?  @db.Text
+  sort_order  Int      @default(0) @db.SmallInt
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+
+  services Service[]
+
+  @@map("service_categories")
+}
+
+model Service {
+  id                     String   @id @default(uuid()) @db.VarChar(36)
+  category_id            String   @db.VarChar(36)
+  name                   String   @db.VarChar(160)
+  slug                   String   @unique @db.VarChar(160)
+  description            String   @db.Text
+  base_price             Decimal  @db.Decimal(12, 2)
+  estimated_duration_min Int      @default(30) @db.SmallInt
+  icon_key               String?  @db.VarChar(40)
+  requires_prescription  Boolean  @default(false)
+  is_active              Boolean  @default(true)
+  created_at             DateTime @default(now())
+  updated_at             DateTime @updatedAt
+
+  category      ServiceCategory      @relation(fields: [category_id], references: [id])
+  pricing_rules ServicePricingRule[]
+  items         ServiceRequestItem[]
+
+  @@map("services")
+}
+
+enum PricingModifierType {
+  night_hours
+  weekend
+  holiday
+  zone_surge
+}
+
+model ServicePricingRule {
+  id              String              @id @default(uuid()) @db.VarChar(36)
+  service_id      String?             @db.VarChar(36)
+  modifier_type   PricingModifierType
+  multiplier      Decimal             @default(1.00) @db.Decimal(5, 2)
+  fixed_surcharge Decimal             @default(0) @db.Decimal(12, 2)
+  starts_at_time  DateTime?           @db.Time
+  ends_at_time    DateTime?           @db.Time
+  applies_on_date DateTime?           @db.Date
+  is_active       Boolean             @default(true)
+  created_at      DateTime            @default(now())
+
+  service Service?             @relation(fields: [service_id], references: [id], onDelete: Cascade)
+  items   ServiceRequestItem[]
+
+  @@map("service_pricing_rules")
+}
+
+// -----------------------------------------------------------------------------
+// SOLICITUDES / CITAS
+// -----------------------------------------------------------------------------
+enum RequestType {
+  immediate
+  scheduled
+}
+
+enum RequestStatus {
+  draft
+  published
+  accepted
+  en_camino
+  arrived
+  in_progress
+  completed
+  cancelled
+  disputed
+}
+
+model ServiceRequest {
+  id                  String                @id @default(uuid()) @db.VarChar(36)
+  patient_user_id     String                @db.VarChar(36)
+  assigned_nurse_id   String?               @db.VarChar(36)
+  address_id          String                @db.VarChar(36)
+  operational_zone_id String?               @db.VarChar(36)
+  request_type        RequestType
+  status              RequestStatus         @default(draft)
+  scheduled_start_at  DateTime?
+  scheduled_end_at    DateTime?
+  published_at        DateTime?
+  accepted_at         DateTime?
+  started_at          DateTime?
+  completed_at        DateTime?
+  cancelled_at        DateTime?
+  cancellation_reason String?               @db.Text
+  patient_notes       String?               @db.Text
+  subtotal_amount     Decimal               @default(0) @db.Decimal(12, 2)
+  surcharge_amount    Decimal               @default(0) @db.Decimal(12, 2)
+  total_amount        Decimal               @default(0) @db.Decimal(12, 2)
+  currency_code       String                @default("MXN") @db.Char(3)
+  service_location    Unsupported("POINT")?
+  created_at          DateTime              @default(now())
+  updated_at          DateTime              @updatedAt
+
+  patient             User                          @relation("PatientRequests", fields: [patient_user_id], references: [id])
+  assigned_nurse      User?                         @relation("AssignedRequests", fields: [assigned_nurse_id], references: [id])
+  address             Address                       @relation(fields: [address_id], references: [id])
+  operational_zone    OperationalZone?              @relation(fields: [operational_zone_id], references: [id])
+  items               ServiceRequestItem[]
+  attachments         ServiceRequestAttachment[]
+  status_history      ServiceRequestStatusHistory[]
+  visibility          ServiceRequestVisibility[]
+  route_stops         RouteStop[]
+  location_pings      NurseLocationPing[]
+  clinical_report     ClinicalReport?
+  digital_signature   DigitalSignature?
+  payments            Payment[]
+  wallet_transactions WalletTransaction[]
+  conversation        Conversation?
+  disputes            Dispute[]
+
+  @@index([patient_user_id, created_at])
+  @@index([status])
+  @@map("service_requests")
+}
+
+model ServiceRequestItem {
+  id                 String   @id @default(uuid()) @db.VarChar(36)
+  service_request_id String   @db.VarChar(36)
+  service_id         String   @db.VarChar(36)
+  quantity           Int      @default(1) @db.SmallInt
+  unit_price         Decimal  @db.Decimal(12, 2)
+  line_total         Decimal  @db.Decimal(12, 2)
+  pricing_rule_id    String?  @db.VarChar(36)
+  created_at         DateTime @default(now())
+
+  service_request ServiceRequest      @relation(fields: [service_request_id], references: [id], onDelete: Cascade)
+  service         Service             @relation(fields: [service_id], references: [id])
+  pricing_rule    ServicePricingRule? @relation(fields: [pricing_rule_id], references: [id])
+
+  @@unique([service_request_id, service_id])
+  @@map("service_request_items")
+}
+
+enum AttachmentType {
+  prescription
+  lab_result
+  clinical_photo
+  other
+}
+
+model ServiceRequestAttachment {
+  id                 String         @id @default(uuid()) @db.VarChar(36)
+  service_request_id String         @db.VarChar(36)
+  uploaded_by        String         @db.VarChar(36)
+  file_name          String         @db.VarChar(255)
+  file_url           String         @db.Text
+  mime_type          String?        @db.VarChar(100)
+  file_size_bytes    BigInt?
+  attachment_type    AttachmentType @default(prescription)
+  created_at         DateTime       @default(now())
+
+  service_request ServiceRequest @relation(fields: [service_request_id], references: [id], onDelete: Cascade)
+  uploader        User           @relation(fields: [uploaded_by], references: [id])
+
+  @@map("service_request_attachments")
+}
+
+model ServiceRequestStatusHistory {
+  id                 String   @id @default(uuid()) @db.VarChar(36)
+  service_request_id String   @db.VarChar(36)
+  from_status        String?  @db.VarChar(50)
+  to_status          String   @db.VarChar(50)
+  changed_by         String?  @db.VarChar(36)
+  change_source      String?  @default("system") @db.VarChar(40)
+  notes              String?  @db.Text
+  created_at         DateTime @default(now())
+
+  service_request ServiceRequest @relation(fields: [service_request_id], references: [id], onDelete: Cascade)
+  user            User?          @relation(fields: [changed_by], references: [id])
+
+  @@map("service_request_status_history")
+}
+
+// -----------------------------------------------------------------------------
+// MATCHING Y RUTAS
+// -----------------------------------------------------------------------------
+model ServiceRequestVisibility {
+  id                 String    @id @default(uuid()) @db.VarChar(36)
+  service_request_id String    @db.VarChar(36)
+  nurse_user_id      String    @db.VarChar(36)
+  distance_meters    Decimal?  @db.Decimal(10, 2)
+  notified_at        DateTime?
+  viewed_at          DateTime?
+  created_at         DateTime  @default(now())
+
+  service_request ServiceRequest @relation(fields: [service_request_id], references: [id], onDelete: Cascade)
+  nurse           User           @relation(fields: [nurse_user_id], references: [id], onDelete: Cascade)
+
+  @@unique([service_request_id, nurse_user_id])
+  @@map("service_request_visibility")
+}
+
+model DailyRoute {
+  id                String    @id @default(uuid()) @db.VarChar(36)
+  nurse_user_id     String    @db.VarChar(36)
+  route_date        DateTime  @db.Date
+  total_distance_km Decimal?  @db.Decimal(8, 2)
+  total_earnings    Decimal   @default(0) @db.Decimal(12, 2)
+  started_at        DateTime?
+  completed_at      DateTime?
+  created_at        DateTime  @default(now())
+
+  nurse User        @relation(fields: [nurse_user_id], references: [id], onDelete: Cascade)
+  stops RouteStop[]
+
+  @@unique([nurse_user_id, route_date])
+  @@map("daily_routes")
+}
+
+enum StopStatus {
+  pending
+  en_camino
+  arrived
+  completed
+  skipped
+}
+
+model RouteStop {
+  id                 String     @id @default(uuid()) @db.VarChar(36)
+  daily_route_id     String     @db.VarChar(36)
+  service_request_id String     @db.VarChar(36)
+  stop_order         Int        @db.SmallInt
+  status             StopStatus @default(pending)
+  planned_arrival_at DateTime?
+  actual_arrival_at  DateTime?
+  distance_km        Decimal?   @db.Decimal(8, 2)
+  eta_minutes        Int?       @db.SmallInt
+  price_amount       Decimal?   @db.Decimal(12, 2)
+  created_at         DateTime   @default(now())
+
+  daily_route     DailyRoute     @relation(fields: [daily_route_id], references: [id], onDelete: Cascade)
+  service_request ServiceRequest @relation(fields: [service_request_id], references: [id])
+
+  @@unique([daily_route_id, stop_order])
+  @@unique([daily_route_id, service_request_id])
+  @@map("route_stops")
+}
+
+model NurseLocationPing {
+  id                 String               @id @default(uuid()) @db.VarChar(36)
+  nurse_user_id      String               @db.VarChar(36)
+  service_request_id String?              @db.VarChar(36)
+  location           Unsupported("POINT")
+  accuracy_meters    Decimal?             @db.Decimal(8, 2)
+  speed_kmh          Decimal?             @db.Decimal(6, 2)
+  heading_degrees    Int?                 @db.SmallInt
+  recorded_at        DateTime             @default(now())
+
+  nurse           User            @relation(fields: [nurse_user_id], references: [id], onDelete: Cascade)
+  service_request ServiceRequest? @relation(fields: [service_request_id], references: [id])
+
+  @@map("nurse_location_pings")
+}
+
+// -----------------------------------------------------------------------------
+// RELACIÓN ENFERMERO–PACIENTE Y BITÁCORA CLÍNICA
+// -----------------------------------------------------------------------------
+enum ClinicalStatus {
+  estable
+  seguimiento
+  critico
+}
+
+model NursePatientRelationship {
+  id                String         @id @default(uuid()) @db.VarChar(36)
+  nurse_user_id     String         @db.VarChar(36)
+  patient_user_id   String         @db.VarChar(36)
+  clinical_status   ClinicalStatus @default(estable)
+  total_services    Int            @default(0)
+  last_service_at   DateTime?
+  last_service_name String?        @db.VarChar(160)
+  private_notes     String?        @db.Text
+  created_at        DateTime       @default(now())
+  updated_at        DateTime       @updatedAt
+
+  nurse   User @relation("NurseRelations", fields: [nurse_user_id], references: [id], onDelete: Cascade)
+  patient User @relation("PatientRelations", fields: [patient_user_id], references: [id], onDelete: Cascade)
+
+  @@unique([nurse_user_id, patient_user_id])
+  @@map("nurse_patient_relationships")
+}
+
+model NurseAvailabilitySlot {
+  id            String   @id @default(uuid()) @db.VarChar(36)
+  nurse_user_id String   @db.VarChar(36)
+  day_of_week   Int?     @db.SmallInt
+  starts_at     DateTime @db.Time
+  ends_at       DateTime @db.Time
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+
+  nurse User @relation(fields: [nurse_user_id], references: [id], onDelete: Cascade)
+
+  @@map("nurse_availability_slots")
+}
+
+model ClinicalReport {
+  id                 String   @id @default(uuid()) @db.VarChar(36)
+  service_request_id String   @unique @db.VarChar(36)
+  nurse_user_id      String   @db.VarChar(36)
+  observations       String   @db.Text
+  wound_status       String?  @db.VarChar(80)
+  procedures_done    String?  @db.Text
+  recommendations    String?  @db.Text
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+
+  service_request     ServiceRequest     @relation(fields: [service_request_id], references: [id])
+  nurse               User               @relation(fields: [nurse_user_id], references: [id])
+  vital_signs_records VitalSignsRecord[]
+
+  @@map("clinical_reports")
+}
+
+model VitalSignsRecord {
+  id                 String   @id @default(uuid()) @db.VarChar(36)
+  clinical_report_id String   @db.VarChar(36)
+  blood_pressure_sys Int?     @db.SmallInt
+  blood_pressure_dia Int?     @db.SmallInt
+  heart_rate_bpm     Int?     @db.SmallInt
+  temperature_c      Decimal? @db.Decimal(4, 1)
+  glucose_mg_dl      Decimal? @db.Decimal(6, 1)
+  oxygen_saturation  Decimal? @db.Decimal(5, 2)
+  respiratory_rate   Int?     @db.SmallInt
+  recorded_at        DateTime @default(now())
+
+  clinical_report ClinicalReport @relation(fields: [clinical_report_id], references: [id], onDelete: Cascade)
+
+  @@map("vital_signs_records")
+}
+
+model DigitalSignature {
+  id                  String   @id @default(uuid()) @db.VarChar(36)
+  service_request_id  String   @unique @db.VarChar(36)
+  signed_by_user_id   String   @db.VarChar(36)
+  signature_image_url String   @db.Text
+  signed_at           DateTime @default(now())
+  ip_address          String?  @db.VarChar(45)
+  user_agent          String?  @db.Text
+
+  service_request ServiceRequest @relation(fields: [service_request_id], references: [id])
+  signed_by       User           @relation(fields: [signed_by_user_id], references: [id])
+
+  @@map("digital_signatures")
+}
+
+// -----------------------------------------------------------------------------
+// FINANZAS Y PAGOS
+// -----------------------------------------------------------------------------
+enum PaymentStatus {
+  pending
+  processing
+  completed
+  failed
+  refunded
+  partially_refunded
+}
+
+model Payment {
+  id                  String        @id @default(uuid()) @db.VarChar(36)
+  service_request_id  String        @db.VarChar(36)
+  patient_user_id     String        @db.VarChar(36)
+  amount              Decimal       @db.Decimal(12, 2)
+  platform_fee        Decimal       @default(0) @db.Decimal(12, 2)
+  nurse_net_amount    Decimal       @default(0) @db.Decimal(12, 2)
+  currency_code       String        @default("MXN") @db.Char(3)
+  status              PaymentStatus @default(pending)
+  provider            String        @default("stripe") @db.VarChar(40)
+  provider_payment_id String?       @db.VarChar(120)
+  provider_payload    Json?
+  paid_at             DateTime?
+  created_at          DateTime      @default(now())
+  updated_at          DateTime      @updatedAt
+
+  service_request     ServiceRequest      @relation(fields: [service_request_id], references: [id])
+  patient             User                @relation(fields: [patient_user_id], references: [id])
+  wallet_transactions WalletTransaction[]
+
+  @@map("payments")
+}
+
+enum TransactionType {
+  service_income
+  platform_commission
+  withdrawal
+  refund
+  adjustment
+}
+
+model WalletTransaction {
+  id                 String          @id @default(uuid()) @db.VarChar(36)
+  wallet_id          String          @db.VarChar(36)
+  payment_id         String?         @db.VarChar(36)
+  service_request_id String?         @db.VarChar(36)
+  transaction_type   TransactionType
+  amount             Decimal         @db.Decimal(12, 2)
+  balance_after      Decimal         @db.Decimal(12, 2)
+  description        String?         @db.VarChar(255)
+  status             PaymentStatus   @default(completed)
+  created_at         DateTime        @default(now())
+
+  wallet          NurseWallet     @relation(fields: [wallet_id], references: [id])
+  payment         Payment?        @relation(fields: [payment_id], references: [id])
+  service_request ServiceRequest? @relation(fields: [service_request_id], references: [id])
+
+  @@map("wallet_transactions")
+}
+
+model NursePayoutMethod {
+  id                 String    @id @default(uuid()) @db.VarChar(36)
+  nurse_user_id      String    @db.VarChar(36)
+  method_type        String    @db.VarChar(20) // bank_account, debit_card
+  bank_name          String?   @db.VarChar(80)
+  account_last_four  String?   @db.Char(4)
+  clabe_masked       String?   @db.VarChar(20)
+  is_primary         Boolean   @default(false)
+  provider_method_id String?   @db.VarChar(120)
+  created_at         DateTime  @default(now())
+  deleted_at         DateTime?
+
+  nurse       User                @relation(fields: [nurse_user_id], references: [id], onDelete: Cascade)
+  withdrawals WithdrawalRequest[]
+
+  @@map("nurse_payout_methods")
+}
+
+enum WithdrawalStatus {
+  pending
+  processing
+  completed
+  failed
+  cancelled
+}
+
+model WithdrawalRequest {
+  id                 String           @id @default(uuid()) @db.VarChar(36)
+  wallet_id          String           @db.VarChar(36)
+  payout_method_id   String           @db.VarChar(36)
+  amount             Decimal          @db.Decimal(12, 2)
+  status             WithdrawalStatus @default(pending)
+  provider_payout_id String?          @db.VarChar(120)
+  processed_at       DateTime?
+  created_at         DateTime         @default(now())
+
+  wallet        NurseWallet       @relation(fields: [wallet_id], references: [id])
+  payout_method NursePayoutMethod @relation(fields: [payout_method_id], references: [id])
+
+  @@map("withdrawal_requests")
+}
+
+// -----------------------------------------------------------------------------
+// COMUNICACIÓN, NOTIFICACIONES Y DISPUTAS
+// -----------------------------------------------------------------------------
+model Conversation {
+  id                 String    @id @default(uuid()) @db.VarChar(36)
+  service_request_id String    @unique @db.VarChar(36)
+  created_at         DateTime  @default(now())
+  closed_at          DateTime?
+
+  service_request ServiceRequest @relation(fields: [service_request_id], references: [id])
+  messages        Message[]
+
+  @@map("conversations")
+}
+
+enum MessageType {
+  text
+  image
+  system
+}
+
+model Message {
+  id              String      @id @default(uuid()) @db.VarChar(36)
+  conversation_id String      @db.VarChar(36)
+  sender_id       String      @db.VarChar(36)
+  message_type    MessageType @default(text)
+  body            String?     @db.Text
+  attachment_url  String?     @db.Text
+  created_at      DateTime    @default(now())
+  deleted_at      DateTime?
+
+  conversation Conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [sender_id], references: [id])
+
+  @@map("messages")
+}
+
+enum NotificationChannel {
+  push
+  email
+  sms
+  in_app
+}
+
+model Notification {
+  id         String              @id @default(uuid()) @db.VarChar(36)
+  user_id    String              @db.VarChar(36)
+  channel    NotificationChannel @default(in_app)
+  title      String              @db.VarChar(200)
+  body       String              @db.Text
+  payload    Json?
+  read_at    DateTime?
+  sent_at    DateTime?
+  created_at DateTime            @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+enum DisputeStatus {
+  open
+  under_review
+  resolved_patient
+  resolved_nurse
+  closed
+}
+
+model Dispute {
+  id                 String        @id @default(uuid()) @db.VarChar(36)
+  service_request_id String        @db.VarChar(36)
+  opened_by          String        @db.VarChar(36)
+  assigned_admin_id  String?       @db.VarChar(36)
+  status             DisputeStatus @default(open)
+  reason             String        @db.Text
+  resolution_notes   String?       @db.Text
+  resolved_at        DateTime?
+  created_at         DateTime      @default(now())
+  updated_at         DateTime      @updatedAt
+
+  service_request ServiceRequest @relation(fields: [service_request_id], references: [id])
+  opener          User           @relation("DisputeOpener", fields: [opened_by], references: [id])
+  admin           User?          @relation("DisputeAssignee", fields: [assigned_admin_id], references: [id])
+
+  @@map("disputes")
+}
+
+model AuditLog {
+  id            String   @id @default(uuid()) @db.VarChar(36)
+  actor_user_id String?  @db.VarChar(36)
+  action        String   @db.VarChar(80)
+  entity_type   String   @db.VarChar(60)
+  entity_id     String?  @db.VarChar(36)
+  old_values    Json?
+  new_values    Json?
+  ip_address    String?  @db.VarChar(45)
+  user_agent    String?  @db.Text
+  created_at    DateTime @default(now())
+
+  actor User? @relation(fields: [actor_user_id], references: [id])
+
+  @@map("audit_logs")
+}
