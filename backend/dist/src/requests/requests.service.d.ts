@@ -1,7 +1,9 @@
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 export declare class RequestsService {
     private prisma;
     constructor(prisma: PrismaService);
+    private attachAddressCoordinates;
     createRequest(patientId: string, data: any): Promise<{
         address: {
             id: string;
@@ -29,7 +31,7 @@ export declare class RequestsService {
                 name: string;
                 slug: string;
                 description: string;
-                base_price: import("@prisma/client/runtime/library").Decimal;
+                base_price: Prisma.Decimal;
                 estimated_duration_min: number;
                 icon_key: string | null;
                 requires_prescription: boolean;
@@ -42,8 +44,8 @@ export declare class RequestsService {
             service_request_id: string;
             service_id: string;
             quantity: number;
-            unit_price: import("@prisma/client/runtime/library").Decimal;
-            line_total: import("@prisma/client/runtime/library").Decimal;
+            unit_price: Prisma.Decimal;
+            line_total: Prisma.Decimal;
             pricing_rule_id: string | null;
             created_at: Date;
         })[];
@@ -64,30 +66,14 @@ export declare class RequestsService {
         cancelled_at: Date | null;
         cancellation_reason: string | null;
         patient_notes: string | null;
-        subtotal_amount: import("@prisma/client/runtime/library").Decimal;
-        surcharge_amount: import("@prisma/client/runtime/library").Decimal;
-        total_amount: import("@prisma/client/runtime/library").Decimal;
+        subtotal_amount: Prisma.Decimal;
+        surcharge_amount: Prisma.Decimal;
+        total_amount: Prisma.Decimal;
         currency_code: string;
         created_at: Date;
         updated_at: Date;
     }>;
     getMyRequests(userId: string): Promise<({
-        payments: {
-            id: string;
-            service_request_id: string;
-            patient_user_id: string;
-            amount: import("@prisma/client/runtime/library").Decimal;
-            platform_fee: import("@prisma/client/runtime/library").Decimal;
-            nurse_net_amount: import("@prisma/client/runtime/library").Decimal;
-            currency_code: string;
-            status: import(".prisma/client").$Enums.PaymentStatus;
-            provider: string;
-            provider_payment_id: string | null;
-            provider_payload: import(".prisma/client").Prisma.JsonValue | null;
-            paid_at: Date | null;
-            created_at: Date;
-            updated_at: Date;
-        }[];
         address: {
             id: string;
             user_id: string;
@@ -107,6 +93,22 @@ export declare class RequestsService {
             updated_at: Date;
             deleted_at: Date | null;
         };
+        payments: {
+            id: string;
+            service_request_id: string;
+            patient_user_id: string;
+            amount: Prisma.Decimal;
+            platform_fee: Prisma.Decimal;
+            nurse_net_amount: Prisma.Decimal;
+            currency_code: string;
+            status: import(".prisma/client").$Enums.PaymentStatus;
+            provider: string;
+            provider_payment_id: string | null;
+            provider_payload: Prisma.JsonValue | null;
+            paid_at: Date | null;
+            created_at: Date;
+            updated_at: Date;
+        }[];
         items: ({
             service: {
                 id: string;
@@ -114,7 +116,7 @@ export declare class RequestsService {
                 name: string;
                 slug: string;
                 description: string;
-                base_price: import("@prisma/client/runtime/library").Decimal;
+                base_price: Prisma.Decimal;
                 estimated_duration_min: number;
                 icon_key: string | null;
                 requires_prescription: boolean;
@@ -127,8 +129,8 @@ export declare class RequestsService {
             service_request_id: string;
             service_id: string;
             quantity: number;
-            unit_price: import("@prisma/client/runtime/library").Decimal;
-            line_total: import("@prisma/client/runtime/library").Decimal;
+            unit_price: Prisma.Decimal;
+            line_total: Prisma.Decimal;
             pricing_rule_id: string | null;
             created_at: Date;
         })[];
@@ -143,7 +145,7 @@ export declare class RequestsService {
                 bio: string | null;
                 years_experience: number | null;
                 is_available: boolean;
-                average_rating: import("@prisma/client/runtime/library").Decimal | null;
+                average_rating: Prisma.Decimal | null;
                 total_services: number;
                 wallet_id: string | null;
                 created_at: Date;
@@ -173,9 +175,9 @@ export declare class RequestsService {
                 blood_pressure_sys: number | null;
                 blood_pressure_dia: number | null;
                 heart_rate_bpm: number | null;
-                temperature_c: import("@prisma/client/runtime/library").Decimal | null;
-                glucose_mg_dl: import("@prisma/client/runtime/library").Decimal | null;
-                oxygen_saturation: import("@prisma/client/runtime/library").Decimal | null;
+                temperature_c: Prisma.Decimal | null;
+                glucose_mg_dl: Prisma.Decimal | null;
+                oxygen_saturation: Prisma.Decimal | null;
                 respiratory_rate: number | null;
                 recorded_at: Date;
             }[];
@@ -207,14 +209,33 @@ export declare class RequestsService {
         cancelled_at: Date | null;
         cancellation_reason: string | null;
         patient_notes: string | null;
-        subtotal_amount: import("@prisma/client/runtime/library").Decimal;
-        surcharge_amount: import("@prisma/client/runtime/library").Decimal;
-        total_amount: import("@prisma/client/runtime/library").Decimal;
+        subtotal_amount: Prisma.Decimal;
+        surcharge_amount: Prisma.Decimal;
+        total_amount: Prisma.Decimal;
         currency_code: string;
         created_at: Date;
         updated_at: Date;
     })[]>;
     getAvailableRequests(): Promise<({
+        address: {
+            id: string;
+            user_id: string;
+            label: import(".prisma/client").$Enums.AddressLabel;
+            custom_label: string | null;
+            street_line1: string;
+            street_line2: string | null;
+            neighborhood: string | null;
+            city: string;
+            state: string | null;
+            postal_code: string;
+            country_code: string;
+            references_text: string | null;
+            operational_zone_id: string | null;
+            is_default: boolean;
+            created_at: Date;
+            updated_at: Date;
+            deleted_at: Date | null;
+        };
         patient: {
             patient_profile: {
                 user_id: string;
@@ -246,25 +267,6 @@ export declare class RequestsService {
             updated_at: Date;
             deleted_at: Date | null;
         };
-        address: {
-            id: string;
-            user_id: string;
-            label: import(".prisma/client").$Enums.AddressLabel;
-            custom_label: string | null;
-            street_line1: string;
-            street_line2: string | null;
-            neighborhood: string | null;
-            city: string;
-            state: string | null;
-            postal_code: string;
-            country_code: string;
-            references_text: string | null;
-            operational_zone_id: string | null;
-            is_default: boolean;
-            created_at: Date;
-            updated_at: Date;
-            deleted_at: Date | null;
-        };
         items: ({
             service: {
                 id: string;
@@ -272,7 +274,7 @@ export declare class RequestsService {
                 name: string;
                 slug: string;
                 description: string;
-                base_price: import("@prisma/client/runtime/library").Decimal;
+                base_price: Prisma.Decimal;
                 estimated_duration_min: number;
                 icon_key: string | null;
                 requires_prescription: boolean;
@@ -285,8 +287,8 @@ export declare class RequestsService {
             service_request_id: string;
             service_id: string;
             quantity: number;
-            unit_price: import("@prisma/client/runtime/library").Decimal;
-            line_total: import("@prisma/client/runtime/library").Decimal;
+            unit_price: Prisma.Decimal;
+            line_total: Prisma.Decimal;
             pricing_rule_id: string | null;
             created_at: Date;
         })[];
@@ -307,14 +309,33 @@ export declare class RequestsService {
         cancelled_at: Date | null;
         cancellation_reason: string | null;
         patient_notes: string | null;
-        subtotal_amount: import("@prisma/client/runtime/library").Decimal;
-        surcharge_amount: import("@prisma/client/runtime/library").Decimal;
-        total_amount: import("@prisma/client/runtime/library").Decimal;
+        subtotal_amount: Prisma.Decimal;
+        surcharge_amount: Prisma.Decimal;
+        total_amount: Prisma.Decimal;
         currency_code: string;
         created_at: Date;
         updated_at: Date;
     })[]>;
     acceptRequest(requestId: string, nurseId: string): Promise<{
+        address: {
+            id: string;
+            user_id: string;
+            label: import(".prisma/client").$Enums.AddressLabel;
+            custom_label: string | null;
+            street_line1: string;
+            street_line2: string | null;
+            neighborhood: string | null;
+            city: string;
+            state: string | null;
+            postal_code: string;
+            country_code: string;
+            references_text: string | null;
+            operational_zone_id: string | null;
+            is_default: boolean;
+            created_at: Date;
+            updated_at: Date;
+            deleted_at: Date | null;
+        };
         patient: {
             patient_profile: {
                 user_id: string;
@@ -346,25 +367,6 @@ export declare class RequestsService {
             updated_at: Date;
             deleted_at: Date | null;
         };
-        address: {
-            id: string;
-            user_id: string;
-            label: import(".prisma/client").$Enums.AddressLabel;
-            custom_label: string | null;
-            street_line1: string;
-            street_line2: string | null;
-            neighborhood: string | null;
-            city: string;
-            state: string | null;
-            postal_code: string;
-            country_code: string;
-            references_text: string | null;
-            operational_zone_id: string | null;
-            is_default: boolean;
-            created_at: Date;
-            updated_at: Date;
-            deleted_at: Date | null;
-        };
         items: ({
             service: {
                 id: string;
@@ -372,7 +374,7 @@ export declare class RequestsService {
                 name: string;
                 slug: string;
                 description: string;
-                base_price: import("@prisma/client/runtime/library").Decimal;
+                base_price: Prisma.Decimal;
                 estimated_duration_min: number;
                 icon_key: string | null;
                 requires_prescription: boolean;
@@ -385,8 +387,8 @@ export declare class RequestsService {
             service_request_id: string;
             service_id: string;
             quantity: number;
-            unit_price: import("@prisma/client/runtime/library").Decimal;
-            line_total: import("@prisma/client/runtime/library").Decimal;
+            unit_price: Prisma.Decimal;
+            line_total: Prisma.Decimal;
             pricing_rule_id: string | null;
             created_at: Date;
         })[];
@@ -407,14 +409,33 @@ export declare class RequestsService {
         cancelled_at: Date | null;
         cancellation_reason: string | null;
         patient_notes: string | null;
-        subtotal_amount: import("@prisma/client/runtime/library").Decimal;
-        surcharge_amount: import("@prisma/client/runtime/library").Decimal;
-        total_amount: import("@prisma/client/runtime/library").Decimal;
+        subtotal_amount: Prisma.Decimal;
+        surcharge_amount: Prisma.Decimal;
+        total_amount: Prisma.Decimal;
         currency_code: string;
         created_at: Date;
         updated_at: Date;
     }>;
     getMySchedule(nurseId: string): Promise<({
+        address: {
+            id: string;
+            user_id: string;
+            label: import(".prisma/client").$Enums.AddressLabel;
+            custom_label: string | null;
+            street_line1: string;
+            street_line2: string | null;
+            neighborhood: string | null;
+            city: string;
+            state: string | null;
+            postal_code: string;
+            country_code: string;
+            references_text: string | null;
+            operational_zone_id: string | null;
+            is_default: boolean;
+            created_at: Date;
+            updated_at: Date;
+            deleted_at: Date | null;
+        };
         patient: {
             patient_profile: {
                 user_id: string;
@@ -446,25 +467,6 @@ export declare class RequestsService {
             updated_at: Date;
             deleted_at: Date | null;
         };
-        address: {
-            id: string;
-            user_id: string;
-            label: import(".prisma/client").$Enums.AddressLabel;
-            custom_label: string | null;
-            street_line1: string;
-            street_line2: string | null;
-            neighborhood: string | null;
-            city: string;
-            state: string | null;
-            postal_code: string;
-            country_code: string;
-            references_text: string | null;
-            operational_zone_id: string | null;
-            is_default: boolean;
-            created_at: Date;
-            updated_at: Date;
-            deleted_at: Date | null;
-        };
         items: ({
             service: {
                 id: string;
@@ -472,7 +474,7 @@ export declare class RequestsService {
                 name: string;
                 slug: string;
                 description: string;
-                base_price: import("@prisma/client/runtime/library").Decimal;
+                base_price: Prisma.Decimal;
                 estimated_duration_min: number;
                 icon_key: string | null;
                 requires_prescription: boolean;
@@ -485,8 +487,8 @@ export declare class RequestsService {
             service_request_id: string;
             service_id: string;
             quantity: number;
-            unit_price: import("@prisma/client/runtime/library").Decimal;
-            line_total: import("@prisma/client/runtime/library").Decimal;
+            unit_price: Prisma.Decimal;
+            line_total: Prisma.Decimal;
             pricing_rule_id: string | null;
             created_at: Date;
         })[];
@@ -507,9 +509,9 @@ export declare class RequestsService {
         cancelled_at: Date | null;
         cancellation_reason: string | null;
         patient_notes: string | null;
-        subtotal_amount: import("@prisma/client/runtime/library").Decimal;
-        surcharge_amount: import("@prisma/client/runtime/library").Decimal;
-        total_amount: import("@prisma/client/runtime/library").Decimal;
+        subtotal_amount: Prisma.Decimal;
+        surcharge_amount: Prisma.Decimal;
+        total_amount: Prisma.Decimal;
         currency_code: string;
         created_at: Date;
         updated_at: Date;
@@ -531,9 +533,9 @@ export declare class RequestsService {
         cancelled_at: Date | null;
         cancellation_reason: string | null;
         patient_notes: string | null;
-        subtotal_amount: import("@prisma/client/runtime/library").Decimal;
-        surcharge_amount: import("@prisma/client/runtime/library").Decimal;
-        total_amount: import("@prisma/client/runtime/library").Decimal;
+        subtotal_amount: Prisma.Decimal;
+        surcharge_amount: Prisma.Decimal;
+        total_amount: Prisma.Decimal;
         currency_code: string;
         created_at: Date;
         updated_at: Date;
@@ -555,9 +557,9 @@ export declare class RequestsService {
         cancelled_at: Date | null;
         cancellation_reason: string | null;
         patient_notes: string | null;
-        subtotal_amount: import("@prisma/client/runtime/library").Decimal;
-        surcharge_amount: import("@prisma/client/runtime/library").Decimal;
-        total_amount: import("@prisma/client/runtime/library").Decimal;
+        subtotal_amount: Prisma.Decimal;
+        surcharge_amount: Prisma.Decimal;
+        total_amount: Prisma.Decimal;
         currency_code: string;
         created_at: Date;
         updated_at: Date;
@@ -571,6 +573,25 @@ export declare class RequestsService {
     }>;
     getTodayRoute(nurseId: string): Promise<{
         stops: ({
+            address: {
+                id: string;
+                user_id: string;
+                label: import(".prisma/client").$Enums.AddressLabel;
+                custom_label: string | null;
+                street_line1: string;
+                street_line2: string | null;
+                neighborhood: string | null;
+                city: string;
+                state: string | null;
+                postal_code: string;
+                country_code: string;
+                references_text: string | null;
+                operational_zone_id: string | null;
+                is_default: boolean;
+                created_at: Date;
+                updated_at: Date;
+                deleted_at: Date | null;
+            };
             patient: {
                 patient_profile: {
                     user_id: string;
@@ -602,25 +623,6 @@ export declare class RequestsService {
                 updated_at: Date;
                 deleted_at: Date | null;
             };
-            address: {
-                id: string;
-                user_id: string;
-                label: import(".prisma/client").$Enums.AddressLabel;
-                custom_label: string | null;
-                street_line1: string;
-                street_line2: string | null;
-                neighborhood: string | null;
-                city: string;
-                state: string | null;
-                postal_code: string;
-                country_code: string;
-                references_text: string | null;
-                operational_zone_id: string | null;
-                is_default: boolean;
-                created_at: Date;
-                updated_at: Date;
-                deleted_at: Date | null;
-            };
             items: ({
                 service: {
                     id: string;
@@ -628,7 +630,7 @@ export declare class RequestsService {
                     name: string;
                     slug: string;
                     description: string;
-                    base_price: import("@prisma/client/runtime/library").Decimal;
+                    base_price: Prisma.Decimal;
                     estimated_duration_min: number;
                     icon_key: string | null;
                     requires_prescription: boolean;
@@ -641,8 +643,8 @@ export declare class RequestsService {
                 service_request_id: string;
                 service_id: string;
                 quantity: number;
-                unit_price: import("@prisma/client/runtime/library").Decimal;
-                line_total: import("@prisma/client/runtime/library").Decimal;
+                unit_price: Prisma.Decimal;
+                line_total: Prisma.Decimal;
                 pricing_rule_id: string | null;
                 created_at: Date;
             })[];
@@ -663,9 +665,9 @@ export declare class RequestsService {
             cancelled_at: Date | null;
             cancellation_reason: string | null;
             patient_notes: string | null;
-            subtotal_amount: import("@prisma/client/runtime/library").Decimal;
-            surcharge_amount: import("@prisma/client/runtime/library").Decimal;
-            total_amount: import("@prisma/client/runtime/library").Decimal;
+            subtotal_amount: Prisma.Decimal;
+            surcharge_amount: Prisma.Decimal;
+            total_amount: Prisma.Decimal;
             currency_code: string;
             created_at: Date;
             updated_at: Date;

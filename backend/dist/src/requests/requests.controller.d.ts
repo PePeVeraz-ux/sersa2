@@ -3,22 +3,6 @@ export declare class RequestsController {
     private readonly requestsService;
     constructor(requestsService: RequestsService);
     getMyRequests(req: any): Promise<({
-        payments: {
-            id: string;
-            service_request_id: string;
-            patient_user_id: string;
-            amount: import("@prisma/client/runtime/library").Decimal;
-            platform_fee: import("@prisma/client/runtime/library").Decimal;
-            nurse_net_amount: import("@prisma/client/runtime/library").Decimal;
-            currency_code: string;
-            status: import(".prisma/client").$Enums.PaymentStatus;
-            provider: string;
-            provider_payment_id: string | null;
-            provider_payload: import(".prisma/client").Prisma.JsonValue | null;
-            paid_at: Date | null;
-            created_at: Date;
-            updated_at: Date;
-        }[];
         address: {
             id: string;
             user_id: string;
@@ -38,6 +22,22 @@ export declare class RequestsController {
             updated_at: Date;
             deleted_at: Date | null;
         };
+        payments: {
+            id: string;
+            service_request_id: string;
+            patient_user_id: string;
+            amount: import("@prisma/client/runtime/library").Decimal;
+            platform_fee: import("@prisma/client/runtime/library").Decimal;
+            nurse_net_amount: import("@prisma/client/runtime/library").Decimal;
+            currency_code: string;
+            status: import(".prisma/client").$Enums.PaymentStatus;
+            provider: string;
+            provider_payment_id: string | null;
+            provider_payload: import(".prisma/client").Prisma.JsonValue | null;
+            paid_at: Date | null;
+            created_at: Date;
+            updated_at: Date;
+        }[];
         items: ({
             service: {
                 id: string;
@@ -146,6 +146,25 @@ export declare class RequestsController {
         updated_at: Date;
     })[]>;
     getAvailableRequests(): Promise<({
+        address: {
+            id: string;
+            user_id: string;
+            label: import(".prisma/client").$Enums.AddressLabel;
+            custom_label: string | null;
+            street_line1: string;
+            street_line2: string | null;
+            neighborhood: string | null;
+            city: string;
+            state: string | null;
+            postal_code: string;
+            country_code: string;
+            references_text: string | null;
+            operational_zone_id: string | null;
+            is_default: boolean;
+            created_at: Date;
+            updated_at: Date;
+            deleted_at: Date | null;
+        };
         patient: {
             patient_profile: {
                 user_id: string;
@@ -173,25 +192,6 @@ export declare class RequestsController {
             profile_photo_url: string | null;
             preferred_locale: string;
             timezone: string;
-            created_at: Date;
-            updated_at: Date;
-            deleted_at: Date | null;
-        };
-        address: {
-            id: string;
-            user_id: string;
-            label: import(".prisma/client").$Enums.AddressLabel;
-            custom_label: string | null;
-            street_line1: string;
-            street_line2: string | null;
-            neighborhood: string | null;
-            city: string;
-            state: string | null;
-            postal_code: string;
-            country_code: string;
-            references_text: string | null;
-            operational_zone_id: string | null;
-            is_default: boolean;
             created_at: Date;
             updated_at: Date;
             deleted_at: Date | null;
@@ -254,6 +254,25 @@ export declare class RequestsController {
     }>;
     getTodayRoute(req: any): Promise<{
         stops: ({
+            address: {
+                id: string;
+                user_id: string;
+                label: import(".prisma/client").$Enums.AddressLabel;
+                custom_label: string | null;
+                street_line1: string;
+                street_line2: string | null;
+                neighborhood: string | null;
+                city: string;
+                state: string | null;
+                postal_code: string;
+                country_code: string;
+                references_text: string | null;
+                operational_zone_id: string | null;
+                is_default: boolean;
+                created_at: Date;
+                updated_at: Date;
+                deleted_at: Date | null;
+            };
             patient: {
                 patient_profile: {
                     user_id: string;
@@ -281,25 +300,6 @@ export declare class RequestsController {
                 profile_photo_url: string | null;
                 preferred_locale: string;
                 timezone: string;
-                created_at: Date;
-                updated_at: Date;
-                deleted_at: Date | null;
-            };
-            address: {
-                id: string;
-                user_id: string;
-                label: import(".prisma/client").$Enums.AddressLabel;
-                custom_label: string | null;
-                street_line1: string;
-                street_line2: string | null;
-                neighborhood: string | null;
-                city: string;
-                state: string | null;
-                postal_code: string;
-                country_code: string;
-                references_text: string | null;
-                operational_zone_id: string | null;
-                is_default: boolean;
                 created_at: Date;
                 updated_at: Date;
                 deleted_at: Date | null;
@@ -357,6 +357,25 @@ export declare class RequestsController {
         totalEarnings: number;
     }>;
     acceptRequest(req: any, id: string): Promise<{
+        address: {
+            id: string;
+            user_id: string;
+            label: import(".prisma/client").$Enums.AddressLabel;
+            custom_label: string | null;
+            street_line1: string;
+            street_line2: string | null;
+            neighborhood: string | null;
+            city: string;
+            state: string | null;
+            postal_code: string;
+            country_code: string;
+            references_text: string | null;
+            operational_zone_id: string | null;
+            is_default: boolean;
+            created_at: Date;
+            updated_at: Date;
+            deleted_at: Date | null;
+        };
         patient: {
             patient_profile: {
                 user_id: string;
@@ -384,25 +403,6 @@ export declare class RequestsController {
             profile_photo_url: string | null;
             preferred_locale: string;
             timezone: string;
-            created_at: Date;
-            updated_at: Date;
-            deleted_at: Date | null;
-        };
-        address: {
-            id: string;
-            user_id: string;
-            label: import(".prisma/client").$Enums.AddressLabel;
-            custom_label: string | null;
-            street_line1: string;
-            street_line2: string | null;
-            neighborhood: string | null;
-            city: string;
-            state: string | null;
-            postal_code: string;
-            country_code: string;
-            references_text: string | null;
-            operational_zone_id: string | null;
-            is_default: boolean;
             created_at: Date;
             updated_at: Date;
             deleted_at: Date | null;
@@ -457,6 +457,25 @@ export declare class RequestsController {
         updated_at: Date;
     }>;
     getMySchedule(req: any): Promise<({
+        address: {
+            id: string;
+            user_id: string;
+            label: import(".prisma/client").$Enums.AddressLabel;
+            custom_label: string | null;
+            street_line1: string;
+            street_line2: string | null;
+            neighborhood: string | null;
+            city: string;
+            state: string | null;
+            postal_code: string;
+            country_code: string;
+            references_text: string | null;
+            operational_zone_id: string | null;
+            is_default: boolean;
+            created_at: Date;
+            updated_at: Date;
+            deleted_at: Date | null;
+        };
         patient: {
             patient_profile: {
                 user_id: string;
@@ -484,25 +503,6 @@ export declare class RequestsController {
             profile_photo_url: string | null;
             preferred_locale: string;
             timezone: string;
-            created_at: Date;
-            updated_at: Date;
-            deleted_at: Date | null;
-        };
-        address: {
-            id: string;
-            user_id: string;
-            label: import(".prisma/client").$Enums.AddressLabel;
-            custom_label: string | null;
-            street_line1: string;
-            street_line2: string | null;
-            neighborhood: string | null;
-            city: string;
-            state: string | null;
-            postal_code: string;
-            country_code: string;
-            references_text: string | null;
-            operational_zone_id: string | null;
-            is_default: boolean;
             created_at: Date;
             updated_at: Date;
             deleted_at: Date | null;

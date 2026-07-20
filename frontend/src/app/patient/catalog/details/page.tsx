@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MapPin, Calendar, Clock, Upload, ChevronLeft, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getAddressTypeLabel } from '@/lib/address';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -120,7 +121,7 @@ export default function CatalogDetails() {
                           <MapPin className="w-6 h-6" />
                         </div>
                         <div>
-                          <div className="font-semibold text-slate-800">{addr.label}</div>
+                          <div className="font-semibold text-slate-800">{getAddressTypeLabel(addr)}</div>
                           <div className="text-sm text-slate-500">{addr.street_line1}, {addr.neighborhood}<br/>{addr.city}, CP {addr.postal_code}</div>
                         </div>
                       </div>

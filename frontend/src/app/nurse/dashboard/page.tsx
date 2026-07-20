@@ -8,6 +8,8 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { motion } from 'framer-motion';
 import { apiFetch } from '@/lib/api';
+import { NurseAddressSummary } from '@/components/address/NurseAddressSummary';
+import { getAddressTypeLabel } from '@/lib/address';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -155,11 +157,8 @@ export default function NurseDashboard() {
                         </div>
                         <div>
                           <div className="font-bold text-slate-900 text-lg">{serviceName}</div>
-                          <div className="text-sm text-slate-600 font-medium mb-1">{patientName}</div>
-                          <div className="flex items-center gap-1.5 text-xs text-slate-500 bg-slate-100 w-fit px-2 py-1 rounded-md">
-                            <MapPin className="w-3.5 h-3.5" />
-                            {req.address?.neighborhood}, {req.address?.city}
-                          </div>
+                          <div className="text-sm text-slate-600 font-medium mb-2">{patientName}</div>
+                          <NurseAddressSummary address={req.address} compact showVerifyHint />
                         </div>
                       </div>
                       <div className="flex flex-col sm:items-end gap-3 shrink-0">
@@ -220,7 +219,9 @@ export default function NurseDashboard() {
                       </div>
                       <div className="pt-1.5">
                         <div className="font-bold text-slate-900 text-sm mb-1 group-hover:text-sky-600 transition-colors">{name}</div>
-                        <div className="text-xs text-slate-500 font-medium">{time} • {stop.address?.neighborhood}</div>
+                        <div className="text-xs text-slate-500 font-medium">
+                          {time} · {getAddressTypeLabel(stop.address)} · {stop.address?.neighborhood}
+                        </div>
                       </div>
                     </motion.div>
                       );

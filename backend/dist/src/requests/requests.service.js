@@ -11,11 +11,88 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RequestsService = void 0;
 const common_1 = require("@nestjs/common");
+const client_1 = require("@prisma/client");
 const prisma_service_1 = require("../prisma/prisma.service");
 let RequestsService = class RequestsService {
     prisma;
     constructor(prisma) {
         this.prisma = prisma;
+    }
+    async attachAddressCoordinates(items) {
+        const addressIds = [...new Set(items.map((item) => item.address?.id).filter(Boolean))];
+        if (addressIds.length === 0)
+            return items;
+        const rows = await this.prisma.$queryRaw `
+      SELECT id, ST_Y(location::geometry)::float8 AS lat, ST_X(location::geometry)::float8 AS lng
+      FROM addresses
+      WHERE id IN (${client_1.Prisma.join(addressIds)})
+    `;
+        const coordsById = Object.fromEntries(rows.map((row) => [row.id, { lat: row.lat, lng: row.lng }]));
+        const resultItems = [];
+        for (const item of items) {
+            if (!item.address?.id) {
+                resultItems.push(item);
+                continue;
+            }
+            let lat = coordsById[item.address.id]?.lat;
+            let lng = coordsById[item.address.id]?.lng;
+            const isDummy = lat === undefined || lng === undefined ||
+                (Math.abs(lat - 19.4326) < 0.001 && Math.abs(lng - (-99.1332)) < 0.001);
+            if (isDummy) {
+                const addressText = `${item.address.street_line1}, ${item.address.neighborhood || ''}, ${item.address.city}, Mexico`;
+                console.log(`Geocoding dummy address on-the-fly: "${addressText}"`);
+                let geocodedLat = 32.5149;
+                let geocodedLng = -117.0382;
+                let success = false;
+                try {
+                    const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addressText)}&format=json&limit=1`, {
+                        headers: { 'User-Agent': 'SersaAppGeocoder/1.0' }
+                    });
+                    const results = await res.json();
+                    if (results && results.length > 0) {
+                        geocodedLat = parseFloat(results[0].lat);
+                        geocodedLng = parseFloat(results[0].lon);
+                        success = true;
+                    }
+                    else {
+                        const broadText = `${item.address.neighborhood || ''}, ${item.address.city}, Mexico`;
+                        const resBroad = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(broadText)}&format=json&limit=1`, {
+                            headers: { 'User-Agent': 'SersaAppGeocoder/1.0' }
+                        });
+                        const resultsBroad = await resBroad.json();
+                        if (resultsBroad && resultsBroad.length > 0) {
+                            geocodedLat = parseFloat(resultsBroad[0].lat);
+                            geocodedLng = parseFloat(resultsBroad[0].lon);
+                            success = true;
+                        }
+                    }
+                }
+                catch (e) {
+                    console.error('On-the-fly geocoding failed:', e);
+                }
+                lat = geocodedLat;
+                lng = geocodedLng;
+                if (success) {
+                    try {
+                        const wkt = `POINT(${lng} ${lat})`;
+                        await this.prisma.$executeRaw `
+              UPDATE addresses
+              SET location = ST_GeomFromText(${wkt}, 4326), updated_at = NOW()
+              WHERE id = ${item.address.id}
+            `;
+                        console.log(`Updated address DB coords for id ${item.address.id} to: ${lat}, ${lng}`);
+                    }
+                    catch (e) {
+                        console.error('Failed to save geocoded coordinates to DB:', e);
+                    }
+                }
+            }
+            resultItems.push({
+                ...item,
+                address: { ...item.address, lat, lng },
+            });
+        }
+        return resultItems;
     }
     async createRequest(patientId, data) {
         const service = await this.prisma.service.findUnique({
@@ -88,7 +165,7 @@ let RequestsService = class RequestsService {
         });
     }
     async getAvailableRequests() {
-        return this.prisma.serviceRequest.findMany({
+        const requests = await this.prisma.serviceRequest.findMany({
             where: { status: 'published', assigned_nurse_id: null },
             include: {
                 items: { include: { service: true } },
@@ -97,6 +174,7 @@ let RequestsService = class RequestsService {
             },
             orderBy: { created_at: 'desc' },
         });
+        return this.attachAddressCoordinates(requests);
     }
     async acceptRequest(requestId, nurseId) {
         const nurse = await this.prisma.user.findUnique({ where: { id: nurseId } });
@@ -305,10 +383,11 @@ let RequestsService = class RequestsService {
             },
             orderBy: [{ scheduled_start_at: 'asc' }, { created_at: 'asc' }],
         });
+        const stopsWithCoords = await this.attachAddressCoordinates(stops);
         return {
-            stops,
-            totalStops: stops.length,
-            totalEarnings: stops.reduce((s, r) => s + Number(r.total_amount), 0),
+            stops: stopsWithCoords,
+            totalStops: stopsWithCoords.length,
+            totalEarnings: stopsWithCoords.reduce((s, r) => s + Number(r.total_amount), 0),
         };
     }
 };

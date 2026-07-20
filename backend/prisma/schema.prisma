@@ -1,10 +1,11 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
 }
 
 // -----------------------------------------------------------------------------
@@ -19,7 +20,7 @@ model PlatformSetting {
   pilot_city              String                  @default("Ciudad de México") @db.VarChar(120)
   pilot_state             String?                 @db.VarChar(80)
   pilot_country           String                  @default("MX") @db.Char(2)
-  pilot_area              Unsupported("POLYGON")?
+  pilot_area              Unsupported("geometry(Polygon,4326)")?
   min_app_version         String?                 @db.VarChar(20)
   support_email           String?                 @db.VarChar(255)
   created_at              DateTime                @default(now())
@@ -34,7 +35,7 @@ model OperationalZone {
   city         String                 @db.VarChar(120)
   state        String?                @db.VarChar(80)
   country_code String                 @default("MX") @db.Char(2)
-  boundary     Unsupported("POLYGON")
+  boundary     Unsupported("geometry(Polygon,4326)")
   is_active    Boolean                @default(true)
   created_at   DateTime               @default(now())
   updated_at   DateTime               @updatedAt
@@ -249,7 +250,7 @@ model Address {
   postal_code         String               @db.VarChar(12)
   country_code        String               @default("MX") @db.Char(2)
   references_text     String?              @db.Text
-  location            Unsupported("POINT")
+  location            Unsupported("geometry(Point,4326)")
   operational_zone_id String?              @db.VarChar(36)
   is_default          Boolean              @default(false)
   created_at          DateTime             @default(now())
@@ -368,7 +369,7 @@ model ServiceRequest {
   surcharge_amount    Decimal               @default(0) @db.Decimal(12, 2)
   total_amount        Decimal               @default(0) @db.Decimal(12, 2)
   currency_code       String                @default("MXN") @db.Char(3)
-  service_location    Unsupported("POINT")?
+  service_location    Unsupported("geometry(Point,4326)")?
   created_at          DateTime              @default(now())
   updated_at          DateTime              @updatedAt
 
@@ -521,7 +522,7 @@ model NurseLocationPing {
   id                 String               @id @default(uuid()) @db.VarChar(36)
   nurse_user_id      String               @db.VarChar(36)
   service_request_id String?              @db.VarChar(36)
-  location           Unsupported("POINT")
+  location           Unsupported("geometry(Point,4326)")
   accuracy_meters    Decimal?             @db.Decimal(8, 2)
   speed_kmh          Decimal?             @db.Decimal(6, 2)
   heading_degrees    Int?                 @db.SmallInt

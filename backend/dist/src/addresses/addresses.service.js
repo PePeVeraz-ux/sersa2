@@ -26,8 +26,40 @@ let AddressesService = class AddressesService {
     }
     async createAddress(userId, data) {
         const count = await this.prisma.address.count({ where: { user_id: userId, deleted_at: null } });
-        const lng = data.lng || -99.1332;
-        const lat = data.lat || 19.4326;
+        let lat = data.lat;
+        let lng = data.lng;
+        if (!lat || !lng) {
+            const addressText = `${data.street_line1}, ${data.neighborhood || ''}, ${data.city}, Mexico`;
+            console.log(`Geocoding new address: "${addressText}"`);
+            let geocodedLat = 32.5149;
+            let geocodedLng = -117.0382;
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addressText)}&format=json&limit=1`, {
+                    headers: { 'User-Agent': 'SersaAppGeocoder/1.0' }
+                });
+                const results = await res.json();
+                if (results && results.length > 0) {
+                    geocodedLat = parseFloat(results[0].lat);
+                    geocodedLng = parseFloat(results[0].lon);
+                }
+                else {
+                    const broadText = `${data.neighborhood || ''}, ${data.city}, Mexico`;
+                    const resBroad = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(broadText)}&format=json&limit=1`, {
+                        headers: { 'User-Agent': 'SersaAppGeocoder/1.0' }
+                    });
+                    const resultsBroad = await resBroad.json();
+                    if (resultsBroad && resultsBroad.length > 0) {
+                        geocodedLat = parseFloat(resultsBroad[0].lat);
+                        geocodedLng = parseFloat(resultsBroad[0].lon);
+                    }
+                }
+            }
+            catch (e) {
+                console.error('Geocoding during creation failed:', e);
+            }
+            lat = geocodedLat;
+            lng = geocodedLng;
+        }
         const id = (0, crypto_1.randomUUID)();
         let validLabel = 'other';
         const inputLabel = (data.label || '').toLowerCase();
@@ -35,9 +67,10 @@ let AddressesService = class AddressesService {
             validLabel = inputLabel;
         }
         const customLabel = validLabel === 'other' && data.label && !['home', 'work', 'other'].includes(inputLabel) ? data.label : (data.custom_label || null);
+        const wkt = `POINT(${lng} ${lat})`;
         await this.prisma.$executeRaw `
       INSERT INTO addresses (id, user_id, label, custom_label, street_line1, street_line2, neighborhood, city, state, postal_code, country_code, references_text, location, is_default, created_at, updated_at)
-      VALUES (${id}, ${userId}, ${validLabel}, ${customLabel}, ${data.street_line1}, ${data.street_line2 || null}, ${data.neighborhood || null}, ${data.city}, ${data.state || null}, ${data.postal_code}, ${data.country_code || 'MX'}, ${data.references_text || null}, ST_GeomFromText(${'POINT(' + lat + ' ' + lng + ')'}, 4326), ${count === 0}, NOW(), NOW())
+      VALUES (${id}, ${userId}, ${validLabel}::"AddressLabel", ${customLabel}, ${data.street_line1}, ${data.street_line2 || null}, ${data.neighborhood || null}, ${data.city}, ${data.state || null}, ${data.postal_code}, ${data.country_code || 'MX'}, ${data.references_text || null}, ST_GeomFromText(${wkt}, 4326), ${count === 0}, NOW(), NOW())
     `;
         return this.prisma.address.findUnique({ where: { id } });
     }

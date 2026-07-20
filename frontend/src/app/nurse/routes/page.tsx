@@ -1,31 +1,82 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Phone, Navigation, MapPin, Play, Loader2, Clock } from 'lucide-react';
+import { Navigation, MapPin, Play, Loader2, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { apiFetch } from '@/lib/api';
 import { useRouter } from 'next/navigation';
+import type { MapRequestPoint } from '@/components/map/RouteMap';
+import { NurseAddressSummary } from '@/components/address/NurseAddressSummary';
+import { formatFullAddress, getAddressTypeLabel, getMapsUrl } from '@/lib/address';
+
+const RouteMap = dynamic(() => import('@/components/map/RouteMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center bg-slate-100">
+      <Loader2 className="w-8 h-8 animate-spin text-[#4DB4D7]" />
+    </div>
+  ),
+});
+
+function toMapPoint(
+  req: any,
+  kind: 'stop' | 'available',
+  order?: number,
+): MapRequestPoint | null {
+  const lat = req.address?.lat;
+  const lng = req.address?.lng;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  const patient = req.patient?.patient_profile;
+  const patientName = patient ? `${patient.first_name} ${patient.last_name}` : 'Paciente';
+  const serviceName = req.items?.[0]?.service?.name || 'Servicio';
+  const addressType = getAddressTypeLabel(req.address);
+  const addressLine = formatFullAddress(req.address);
+
+  return {
+    id: req.id,
+    lat,
+    lng,
+    label: patientName,
+    subtitle: `${addressType} · ${serviceName}`,
+    addressDetail: addressLine,
+    references: req.address?.references_text || undefined,
+    mapsUrl: getMapsUrl(req.address) || undefined,
+    kind,
+    order,
+  };
+}
 
 export default function NurseRoutes() {
   const { token } = useAuth();
   const router = useRouter();
   const [route, setRoute] = useState<{ stops: any[]; totalStops: number; totalEarnings: number } | null>(null);
+  const [availableRequests, setAvailableRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const fetchRoute = () => {
     if (!token) return;
-    apiFetch<any>('/requests/nurse/today-route', { token })
-      .then(setRoute)
+    Promise.all([
+      apiFetch<any>('/requests/nurse/today-route', { token }),
+      apiFetch<any[]>('/requests/available', { token }),
+    ])
+      .then(([routeData, available]) => {
+        setRoute(routeData);
+        setAvailableRequests(available);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
     fetchRoute();
+    const interval = setInterval(fetchRoute, 30000);
+    return () => clearInterval(interval);
   }, [token]);
 
   const updateStatus = async (id: string, status: string) => {
@@ -46,6 +97,22 @@ export default function NurseRoutes() {
 
   const stops = route?.stops || [];
 
+  const mapStops = useMemo(
+    () =>
+      stops
+        .map((stop, idx) => toMapPoint(stop, 'stop', idx + 1))
+        .filter(Boolean) as MapRequestPoint[],
+    [stops],
+  );
+
+  const mapAvailable = useMemo(() => {
+    const stopIds = new Set(stops.map((s) => s.id));
+    return availableRequests
+      .filter((req) => !stopIds.has(req.id))
+      .map((req) => toMapPoint(req, 'available'))
+      .filter(Boolean) as MapRequestPoint[];
+  }, [availableRequests, stops]);
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -59,7 +126,7 @@ export default function NurseRoutes() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Rutas del día</h2>
-          <p className="text-slate-500">Visualiza y gestiona tu ruta de hoy en Tijuana</p>
+          <p className="text-slate-500">Visualiza tu ubicación y las solicitudes en el mapa</p>
         </div>
         <div className="flex items-center gap-4">
           <div className="bg-slate-100 text-slate-600 px-4 py-2 rounded-lg font-medium flex items-center gap-2">
@@ -72,38 +139,8 @@ export default function NurseRoutes() {
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0">
         <div className="lg:col-span-8 h-full">
           <Card className="shadow-sm h-full overflow-hidden p-2">
-            <div className="w-full h-full bg-slate-100 rounded-xl relative overflow-hidden flex items-center justify-center min-h-[300px]">
-              <div className="absolute inset-0 bg-gradient-to-br from-sky-50 via-slate-100 to-blue-50">
-                <svg className="w-full h-full opacity-20" xmlns="http://www.w3.org/2000/svg">
-                  <defs>
-                    <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
-                      <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#94a3b8" strokeWidth="0.5" />
-                    </pattern>
-                  </defs>
-                  <rect width="100%" height="100%" fill="url(#grid)" />
-                  {stops.length > 1 && (
-                    <polyline
-                      points={stops.map((_, i) => `${150 + i * 120},${120 + (i % 2) * 80}`).join(' ')}
-                      fill="none"
-                      stroke="#4DB4D7"
-                      strokeWidth="3"
-                      strokeDasharray="8,4"
-                    />
-                  )}
-                  {stops.map((_, i) => (
-                    <circle key={i} cx={150 + i * 120} cy={120 + (i % 2) * 80} r="8" fill="#3b82f6" />
-                  ))}
-                </svg>
-              </div>
-              <div className="relative z-10 text-center p-8">
-                <MapPin className="w-12 h-12 text-[#4DB4D7] mx-auto mb-3" />
-                <p className="text-slate-600 font-medium">Zona piloto: Tijuana, B.C.</p>
-                <p className="text-sm text-slate-400 mt-1">{stops.length} paradas programadas para hoy</p>
-              </div>
-              <div className="absolute bottom-4 left-4 bg-white px-3 py-2 rounded-lg shadow-md flex items-center gap-2 text-sm font-medium text-slate-700">
-                <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
-                GPS activo (demo)
-              </div>
+            <div className="w-full h-full rounded-xl relative overflow-hidden min-h-[300px]">
+              <RouteMap stops={mapStops} availableRequests={mapAvailable} className="w-full h-full relative" />
             </div>
           </Card>
         </div>
@@ -137,10 +174,11 @@ export default function NurseRoutes() {
                         <div className="flex-1">
                           <div className="font-semibold text-slate-800">{patientName}</div>
                           <div className="text-slate-600 text-sm mb-2">{serviceName}</div>
-                          <div className="text-sm text-slate-600 flex items-start gap-1">
-                            <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-                            {stop.address?.street_line1}, {stop.address?.neighborhood}
-                          </div>
+                          <NurseAddressSummary
+                            address={stop.address}
+                            compact
+                            showVerifyHint={isActive}
+                          />
                           {stop.scheduled_start_at && (
                             <div className="text-xs text-slate-500 flex items-center gap-1 mt-1">
                               <Clock className="w-3.5 h-3.5" />
