@@ -74,8 +74,8 @@ export declare class AdminController {
         } | null;
         patient_requests: {
             id: string;
-            created_at: Date;
             status: import(".prisma/client").$Enums.RequestStatus;
+            created_at: Date;
         }[];
     } & {
         id: string;

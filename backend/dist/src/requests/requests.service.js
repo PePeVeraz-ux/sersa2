@@ -249,6 +249,19 @@ let RequestsService = class RequestsService {
             orderBy: { created_at: 'asc' },
         });
     }
+    async getNurseRequests(nurseId) {
+        return this.prisma.serviceRequest.findMany({
+            where: {
+                assigned_nurse_id: nurseId,
+            },
+            include: {
+                items: { include: { service: true } },
+                address: true,
+                patient: { include: { patient_profile: true } },
+            },
+            orderBy: { created_at: 'desc' },
+        });
+    }
     async updateStatus(requestId, nurseId, status) {
         const validStatuses = ['en_camino', 'arrived', 'in_progress', 'completed'];
         if (!validStatuses.includes(status)) {

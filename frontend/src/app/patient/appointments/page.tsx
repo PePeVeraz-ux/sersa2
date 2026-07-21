@@ -24,12 +24,14 @@ export default function PatientAppointments() {
   const { token } = useAuth();
   const [citas, setCitas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
 
   useEffect(() => {
     if (!token) return;
     const fetchCitas = async () => {
       try {
         const data = await apiFetch<any[]>('/requests/my-requests', { token });
+        console.log('Citas cargadas en frontend:', data);
         setCitas(data);
       } catch (e) {
         console.error(e);
@@ -67,6 +69,8 @@ export default function PatientAppointments() {
   };
 
   const upcomingCitas = citas.filter(c => !['completed', 'cancelled'].includes(c.status));
+  const pastCitas = citas.filter(c => ['completed', 'cancelled'].includes(c.status));
+  const displayedCitas = activeTab === 'upcoming' ? upcomingCitas : pastCitas;
 
   return (
     <motion.div
@@ -92,11 +96,27 @@ export default function PatientAppointments() {
       </motion.div>
 
       <motion.div variants={itemVariants} className="flex gap-4 border-b border-slate-200 px-2">
-        <button className="pb-3 px-2 border-b-2 border-[#4DB4D7] text-[#4DB4D7] font-bold text-sm tracking-wide transition-colors">
+        <button
+          onClick={() => setActiveTab('upcoming')}
+          className={cn(
+            "pb-3 px-2 border-b-2 font-bold text-sm tracking-wide transition-colors",
+            activeTab === 'upcoming'
+              ? "border-[#4DB4D7] text-[#4DB4D7]"
+              : "border-transparent text-slate-400 hover:text-slate-700"
+          )}
+        >
           Próximas Citas ({upcomingCitas.length})
         </button>
-        <button className="pb-3 px-2 border-b-2 border-transparent text-slate-400 hover:text-slate-700 font-medium text-sm transition-colors">
-          Citas Pasadas
+        <button
+          onClick={() => setActiveTab('past')}
+          className={cn(
+            "pb-3 px-2 border-b-2 font-bold text-sm tracking-wide transition-colors",
+            activeTab === 'past'
+              ? "border-[#4DB4D7] text-[#4DB4D7]"
+              : "border-transparent text-slate-400 hover:text-slate-700"
+          )}
+        >
+          Citas Pasadas ({pastCitas.length})
         </button>
       </motion.div>
 
@@ -106,16 +126,29 @@ export default function PatientAppointments() {
             <div className="w-10 h-10 border-4 border-sky-200 border-t-[#4DB4D7] rounded-full animate-spin mb-4" />
             Cargando tus citas...
           </div>
-        ) : upcomingCitas.length === 0 ? (
+        ) : displayedCitas.length === 0 ? (
           <div className="text-slate-500 bg-white p-12 rounded-3xl border border-slate-200 border-dashed text-center flex flex-col items-center">
             <ShieldCheck className="w-12 h-12 text-slate-300 mb-4" />
-            <p className="text-lg font-medium text-slate-700">No tienes próximas citas</p>
-            <p className="text-sm">Tus servicios solicitados aparecerán aquí.</p>
+            <p className="text-lg font-medium text-slate-700">
+              {activeTab === 'upcoming' ? 'No tienes próximas citas' : 'No tienes citas pasadas'}
+            </p>
+            <p className="text-sm">
+              {activeTab === 'upcoming' ? 'Tus servicios solicitados aparecerán aquí.' : 'El historial de tus citas se mostrará aquí.'}
+            </p>
           </div>
         ) : (
-          upcomingCitas.map((cita) => {
+          displayedCitas.map((cita) => {
             const serviceName = cita.items?.[0]?.service?.name || 'Servicio Médico';
             const nurse = cita.assigned_nurse;
+            const nurseName = nurse?.nurse_profile?.first_name
+              ? `${nurse.nurse_profile.first_name} ${nurse.nurse_profile.last_name || ''}`.trim()
+              : nurse
+              ? 'Enfermero Asignado'
+              : 'Buscando profesional...';
+            const nurseInitials = nurse?.nurse_profile?.first_name
+              ? `${nurse.nurse_profile.first_name[0] || ''}${nurse.nurse_profile.last_name?.[0] || ''}`.toUpperCase()
+              : 'EN';
+
             return (
               <motion.div
                 key={cita.id}
@@ -153,14 +186,14 @@ export default function PatientAppointments() {
                             <MoreHorizontal className="w-5 h-5 animate-pulse" />
                           ) : (
                             <div className="w-full h-full bg-sky-100 text-[#4DB4D7] font-bold flex items-center justify-center text-sm">
-                              {nurse.nurse_profile?.first_name?.[0]}{nurse.nurse_profile?.last_name?.[0]}
+                              {nurseInitials}
                             </div>
                           )}
                         </div>
                         <div>
                           <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Enfermero(a)</div>
                           <div className="font-bold text-slate-800 text-sm">
-                            {nurse ? `${nurse.nurse_profile?.first_name} ${nurse.nurse_profile?.last_name}` : 'Buscando profesional...'}
+                            {nurseName}
                           </div>
                           {nurse && <div className="text-xs text-[#4DB4D7] font-medium flex items-center gap-1 mt-0.5"><ShieldCheck className="w-3 h-3" /> Verificado</div>}
                         </div>
@@ -187,10 +220,12 @@ export default function PatientAppointments() {
                     </div>
 
                     <div className="space-y-3">
-                      <Button variant="outline" className="w-full bg-white text-[#4DB4D7] border border-sky-200 hover:bg-sky-50 shadow-sm h-12 rounded-xl font-bold">
-                        Ver Detalles
-                      </Button>
-                      {!nurse && (
+                      <Link href={`/patient/history?open=${cita.id}`} className="w-full">
+                        <Button variant="outline" className="w-full bg-white text-[#4DB4D7] border border-sky-200 hover:bg-sky-50 shadow-sm h-12 rounded-xl font-bold">
+                          Ver Detalles
+                        </Button>
+                      </Link>
+                      {!['completed', 'cancelled'].includes(cita.status) && !nurse && (
                         <Button variant="ghost" className="w-full text-slate-400 hover:text-rose-600 hover:bg-rose-50 text-sm h-10 rounded-xl font-medium transition-colors">
                           Cancelar solicitud
                         </Button>

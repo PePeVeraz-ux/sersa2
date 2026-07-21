@@ -268,6 +268,20 @@ export class RequestsService {
     });
   }
 
+  async getNurseRequests(nurseId: string) {
+    return this.prisma.serviceRequest.findMany({
+      where: {
+        assigned_nurse_id: nurseId,
+      },
+      include: {
+        items: { include: { service: true } },
+        address: true,
+        patient: { include: { patient_profile: true } },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+  }
+
   async updateStatus(requestId: string, nurseId: string, status: string) {
     const validStatuses = ['en_camino', 'arrived', 'in_progress', 'completed'];
     if (!validStatuses.includes(status)) {

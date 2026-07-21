@@ -14,6 +14,16 @@ export default function PatientHistoryPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const openId = params.get('open');
+      if (openId) {
+        setExpandedId(openId);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     async function fetchRequests() {
       if (!token) return;
       try {

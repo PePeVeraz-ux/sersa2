@@ -132,6 +132,40 @@ export declare class ClinicalReportsController {
             recorded_at: Date;
         }[];
         service_request: {
+            assigned_nurse: ({
+                nurse_profile: {
+                    user_id: string;
+                    first_name: string;
+                    last_name: string;
+                    second_last_name: string | null;
+                    professional_license: string;
+                    license_state: string | null;
+                    bio: string | null;
+                    years_experience: number | null;
+                    is_available: boolean;
+                    average_rating: import("@prisma/client/runtime/library").Decimal | null;
+                    total_services: number;
+                    wallet_id: string | null;
+                    created_at: Date;
+                    updated_at: Date;
+                } | null;
+            } & {
+                id: string;
+                email: string;
+                password_hash: string | null;
+                role: import(".prisma/client").$Enums.Role;
+                status: import(".prisma/client").$Enums.UserStatus;
+                phone: string | null;
+                phone_verified_at: Date | null;
+                email_verified_at: Date | null;
+                last_login_at: Date | null;
+                profile_photo_url: string | null;
+                preferred_locale: string;
+                timezone: string;
+                created_at: Date;
+                updated_at: Date;
+                deleted_at: Date | null;
+            }) | null;
             address: {
                 id: string;
                 user_id: string;
@@ -176,40 +210,6 @@ export declare class ClinicalReportsController {
                 pricing_rule_id: string | null;
                 created_at: Date;
             })[];
-            assigned_nurse: ({
-                nurse_profile: {
-                    user_id: string;
-                    first_name: string;
-                    last_name: string;
-                    second_last_name: string | null;
-                    professional_license: string;
-                    license_state: string | null;
-                    bio: string | null;
-                    years_experience: number | null;
-                    is_available: boolean;
-                    average_rating: import("@prisma/client/runtime/library").Decimal | null;
-                    total_services: number;
-                    wallet_id: string | null;
-                    created_at: Date;
-                    updated_at: Date;
-                } | null;
-            } & {
-                id: string;
-                email: string;
-                password_hash: string | null;
-                role: import(".prisma/client").$Enums.Role;
-                status: import(".prisma/client").$Enums.UserStatus;
-                phone: string | null;
-                phone_verified_at: Date | null;
-                email_verified_at: Date | null;
-                last_login_at: Date | null;
-                profile_photo_url: string | null;
-                preferred_locale: string;
-                timezone: string;
-                created_at: Date;
-                updated_at: Date;
-                deleted_at: Date | null;
-            }) | null;
         } & {
             id: string;
             patient_user_id: string;

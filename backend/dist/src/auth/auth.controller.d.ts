@@ -57,24 +57,7 @@ export declare class AuthController {
     }>;
     getProfile(req: any): Promise<{
         id: string;
-        email: string;
-        role: import(".prisma/client").$Enums.Role;
         status: import(".prisma/client").$Enums.UserStatus;
-        phone: string | null;
-        profile_photo_url: string | null;
-        patient_profile: {
-            user_id: string;
-            first_name: string;
-            last_name: string;
-            second_last_name: string | null;
-            date_of_birth: Date | null;
-            gender: string | null;
-            emergency_contact_name: string | null;
-            emergency_contact_phone: string | null;
-            medical_notes: string | null;
-            created_at: Date;
-            updated_at: Date;
-        } | null;
         nurse_profile: {
             user_id: string;
             first_name: string;
@@ -88,6 +71,23 @@ export declare class AuthController {
             average_rating: import("@prisma/client/runtime/library").Decimal | null;
             total_services: number;
             wallet_id: string | null;
+            created_at: Date;
+            updated_at: Date;
+        } | null;
+        email: string;
+        role: import(".prisma/client").$Enums.Role;
+        phone: string | null;
+        profile_photo_url: string | null;
+        patient_profile: {
+            user_id: string;
+            first_name: string;
+            last_name: string;
+            second_last_name: string | null;
+            date_of_birth: Date | null;
+            gender: string | null;
+            emergency_contact_name: string | null;
+            emergency_contact_phone: string | null;
+            medical_notes: string | null;
             created_at: Date;
             updated_at: Date;
         } | null;

@@ -46,6 +46,10 @@ let RequestsController = class RequestsController {
         const userId = req.user?.userId || req.user?.id || req.user?.sub;
         return this.requestsService.getMySchedule(userId);
     }
+    async getNurseRequests(req) {
+        const userId = req.user?.userId || req.user?.id || req.user?.sub;
+        return this.requestsService.getNurseRequests(userId);
+    }
     async updateStatus(req, id, status) {
         const userId = req.user?.userId || req.user?.id || req.user?.sub;
         return this.requestsService.updateStatus(id, userId, status);
@@ -112,6 +116,15 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], RequestsController.prototype, "getMySchedule", null);
+__decorate([
+    (0, common_1.Get)('nurse/requests'),
+    (0, common_1.UseGuards)(roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('nurse'),
+    __param(0, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], RequestsController.prototype, "getNurseRequests", null);
 __decorate([
     (0, common_1.Patch)(':id/status'),
     (0, common_1.UseGuards)(roles_guard_1.RolesGuard),

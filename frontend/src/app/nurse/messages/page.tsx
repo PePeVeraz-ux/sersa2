@@ -23,7 +23,7 @@ export default function NurseMessages() {
   // Fetch mis citas asignadas para armar la lista de contactos (pacientes)
   useEffect(() => {
     if (!token) return;
-    apiFetch<any[]>('/requests/my-schedule', { token })
+    apiFetch<any[]>('/requests/nurse/requests', { token })
       .then(data => {
         const uniqueContacts = data.map((req: any) => ({
           serviceRequestId: req.id,

@@ -54,6 +54,14 @@ export class RequestsController {
     return this.requestsService.getMySchedule(userId);
   }
 
+  @Get('nurse/requests')
+  @UseGuards(RolesGuard)
+  @Roles('nurse')
+  async getNurseRequests(@Request() req: any) {
+    const userId = req.user?.userId || req.user?.id || req.user?.sub;
+    return this.requestsService.getNurseRequests(userId);
+  }
+
   @Patch(':id/status')
   @UseGuards(RolesGuard)
   @Roles('nurse')
