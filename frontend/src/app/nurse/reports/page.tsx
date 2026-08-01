@@ -50,36 +50,44 @@ export default function NurseReports() {
             </div>
           ) : (
             <div className="flex-1 overflow-auto">
-              <table className="w-full text-center text-sm">
-                <thead className="bg-[#4DB4D7] text-white sticky top-0">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50/80 text-slate-500 sticky top-0 backdrop-blur-sm z-10">
                   <tr>
-                    <th className="px-6 py-4 font-medium border-b border-r border-[#3ba0c2]">ID</th>
-                    <th className="px-6 py-4 font-medium border-b border-r border-[#3ba0c2]">Paciente</th>
-                    <th className="px-6 py-4 font-medium border-b border-r border-[#3ba0c2]">Servicio</th>
-                    <th className="px-6 py-4 font-medium border-b border-r border-[#3ba0c2]">Fecha</th>
-                    <th className="px-6 py-4 font-medium border-b border-[#3ba0c2]">Reporte</th>
+                    <th className="px-6 py-4 font-semibold border-b border-slate-200">Paciente</th>
+                    <th className="px-6 py-4 font-semibold border-b border-slate-200">Servicio</th>
+                    <th className="px-6 py-4 font-semibold border-b border-slate-200">Fecha</th>
+                    <th className="px-6 py-4 font-semibold border-b border-slate-200 text-right">Reporte</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 text-slate-600">
+                <tbody className="divide-y divide-slate-100 text-slate-600 bg-white">
                   {paginated.map((report) => {
                     const patient = report.service_request?.patient?.patient_profile;
                     const serviceName = report.service_request?.items?.[0]?.service?.name || 'Servicio';
                     return (
-                      <tr key={report.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4 border-r font-mono text-xs">#{report.id.slice(-6)}</td>
-                        <td className="px-6 py-4 border-r font-medium text-slate-700">
-                          {patient ? `${patient.first_name} ${patient.last_name}` : 'Paciente'}
-                        </td>
-                        <td className="px-6 py-4 border-r">{serviceName}</td>
-                        <td className="px-6 py-4 border-r">
-                          {new Date(report.created_at).toLocaleDateString('es-MX')}
+                      <tr key={report.id} className="hover:bg-slate-50/80 transition-colors group">
+                        <td className="px-6 py-4 font-medium text-slate-800">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center font-bold text-xs shrink-0">
+                              {patient?.first_name?.[0]}{patient?.last_name?.[0] || 'P'}
+                            </div>
+                            {patient ? `${patient.first_name} ${patient.last_name}` : 'Paciente'}
+                          </div>
                         </td>
                         <td className="px-6 py-4">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+                            {serviceName}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-slate-500">
+                          {new Date(report.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}
+                        </td>
+                        <td className="px-6 py-4 text-right">
                           <Button
                             onClick={() => setSelectedReport(report)}
-                            className="bg-[#4DB4D7] hover:bg-[#3ba0c2] text-white h-8 px-6 text-sm"
+                            variant="outline"
+                            className="text-sky-600 border-sky-200 hover:bg-sky-50 hover:text-sky-700 h-8 px-4 text-xs font-semibold shadow-sm transition-all"
                           >
-                            Ver
+                            Ver Detalles
                           </Button>
                         </td>
                       </tr>

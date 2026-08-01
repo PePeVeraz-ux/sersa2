@@ -29,6 +29,16 @@ export default function NurseSchedule() {
   const [schedule, setSchedule] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'today' | 'upcoming'>('today');
+  const filteredSchedule = schedule.filter((req) => {
+    const now = new Date();
+    const reqDate = new Date(req.scheduled_start_at ?? req.created_at);
+    if (viewMode === 'today') {
+      return reqDate.toDateString() === now.toDateString();
+    }
+    // upcoming: future dates
+    return reqDate > now;
+  });
 
   const fetchSchedule = async () => {
     if (!token) return;
@@ -83,6 +93,7 @@ export default function NurseSchedule() {
       default: return status;
     }
   };
+  // Duplicate filteredSchedule definition removed
 
   return (
     <motion.div 
@@ -97,8 +108,8 @@ export default function NurseSchedule() {
           <p className="text-slate-500 mt-2">Gestiona tus servicios asignados y reporta tu progreso.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="border-slate-200 shadow-sm rounded-xl px-5 h-10 font-medium">Hoy</Button>
-          <Button variant="ghost" className="text-slate-500 font-medium">Próximos</Button>
+          <Button variant="outline" className="border-slate-200 shadow-sm rounded-xl px-5 h-10 font-medium" onClick={() => setViewMode('today')} disabled={viewMode==='today'}>Hoy</Button>
+          <Button variant="ghost" className="text-slate-500 font-medium" onClick={() => setViewMode('upcoming')} disabled={viewMode==='upcoming'}>Próximos</Button>
         </div>
       </motion.div>
 
@@ -111,12 +122,12 @@ export default function NurseSchedule() {
               <Loader2 className="w-8 h-8 animate-spin mb-4 text-sky-400" />
               Cargando tu agenda...
             </div>
-          ) : schedule.length === 0 ? (
+          ) : filteredSchedule.length === 0 ? (
             <div className="p-12 text-center text-slate-500 bg-slate-50 rounded-3xl border border-slate-200 border-dashed ml-12">
               No tienes servicios agendados. Ve al dashboard para aceptar solicitudes.
             </div>
           ) : (
-            schedule.map((req, idx) => {
+            filteredSchedule.map((req, idx) => {
               const isAccepted = req.status === 'accepted';
               const isEnCamino = req.status === 'en_camino';
               const isArrived = req.status === 'arrived';
@@ -139,7 +150,7 @@ export default function NurseSchedule() {
                             </span>
                             <span className="text-sm font-medium text-slate-400 flex items-center gap-1.5">
                               <Clock className="w-4 h-4" />
-                              {new Date(req.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                              {new Date(req.scheduled_start_at ?? req.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
 
@@ -167,10 +178,10 @@ export default function NurseSchedule() {
                             <Button 
                               onClick={() => updateStatus(req.id, 'en_camino')}
                               disabled={!!actionLoading}
-                              className="w-full bg-[#4DB4D7] hover:bg-[#3ba0c2] text-white shadow-md h-12 rounded-xl text-base"
+                              className="w-full bg-[#4DB4D7] hover:bg-[#3ba0c2] text-white shadow-md h-12 rounded-xl text-base flex items-center justify-center gap-2"
                             >
-                              {actionLoading === `${req.id}-en_camino` ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Navigation className="w-5 h-5 mr-2" />}
-                              Iniciar Viaje
+                              {actionLoading === `${req.id}-en_camino` ? <Loader2 className="w-5 h-5 animate-spin" /> : <Navigation className="w-5 h-5" />}
+                               Iniciar Viaje ({new Date(req.scheduled_start_at ?? req.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })})
                             </Button>
                           )}
 
@@ -204,10 +215,6 @@ export default function NurseSchedule() {
                                 Finalizar y Crear Reporte
                               </Button>
                           )}
-                          
-                          <div className="text-center mt-2">
-                            <button className="text-sm font-medium text-sky-600 hover:underline">Ver detalles completos</button>
-                          </div>
                         </div>
 
                       </div>

@@ -80,7 +80,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     
     // Send previous messages to this client
     const messages = await this.chatService.getMessages(conversation.id);
-    client.emit('conversationHistory', { conversationId: conversation.id, messages });
+    client.emit('conversationHistory', { conversationId: conversation.id, serviceRequestId: payload.serviceRequestId, messages });
     
     return { event: 'joined', data: { conversationId: conversation.id } };
   }

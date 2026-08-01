@@ -66,7 +66,7 @@ let ChatGateway = ChatGateway_1 = class ChatGateway {
         const conversation = await this.chatService.getOrCreateConversation(payload.serviceRequestId);
         client.join(`conv_${conversation.id}`);
         const messages = await this.chatService.getMessages(conversation.id);
-        client.emit('conversationHistory', { conversationId: conversation.id, messages });
+        client.emit('conversationHistory', { conversationId: conversation.id, serviceRequestId: payload.serviceRequestId, messages });
         return { event: 'joined', data: { conversationId: conversation.id } };
     }
     async handleSendMessage(client, payload) {

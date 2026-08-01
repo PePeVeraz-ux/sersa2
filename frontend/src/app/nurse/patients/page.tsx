@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Filter, Phone, Mail, MessageSquare, Users, Calendar, Loader2 } from 'lucide-react';
+import { Search, Phone, Mail, MessageSquare, Users, Calendar, Loader2, Activity, CheckCircle2, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { apiFetch } from '@/lib/api';
@@ -36,9 +36,11 @@ export default function NursePatients() {
   }, [token]);
 
   const filtered = patients.filter((p) => {
+    const searchLower = search.toLowerCase().trim();
+    if (!searchLower) return true;
     const name = `${p.profile?.first_name || ''} ${p.profile?.last_name || ''}`.toLowerCase();
     const email = p.patient?.email?.toLowerCase() || '';
-    return name.includes(search.toLowerCase()) || email.includes(search.toLowerCase());
+    return name.includes(searchLower) || email.includes(searchLower);
   });
 
   const stats = {
@@ -72,32 +74,36 @@ export default function NursePatients() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <Input
-            placeholder="Buscar paciente..."
+            placeholder="Buscar paciente por nombre o correo..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 h-10 border-slate-200"
+            className="pl-10 h-11 border-slate-200 bg-white/50 backdrop-blur-sm shadow-sm rounded-xl focus-visible:ring-1 focus-visible:ring-sky-500"
           />
         </div>
-        <Button variant="outline" className="h-10 text-slate-600 gap-2">
-          <Filter className="w-4 h-4" />
-          Filtros
-        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { title: 'Total Pacientes', value: stats.total },
-          { title: 'Estables', value: stats.activos },
-          { title: 'En Seguimiento', value: stats.seguimiento },
-          { title: 'Activos este mes', value: stats.nuevos },
-        ].map((stat) => (
-          <Card key={stat.title} className="shadow-sm">
-            <CardContent className="p-6">
-              <div className="text-sm font-medium text-slate-500 mb-2">{stat.title}</div>
-              <div className="text-3xl font-bold text-slate-800">{stat.value}</div>
-            </CardContent>
-          </Card>
-        ))}
+          { title: 'Total Pacientes', value: stats.total, icon: Users, color: 'from-[#4DB4D7]/10 to-sky-100/40', textColor: 'text-[#4DB4D7]' },
+          { title: 'Estables', value: stats.activos, icon: CheckCircle2, color: 'from-emerald-100/40 to-green-100/20', textColor: 'text-emerald-600' },
+          { title: 'En Seguimiento', value: stats.seguimiento, icon: Activity, color: 'from-amber-100/40 to-orange-100/20', textColor: 'text-amber-600' },
+          { title: 'Activos este mes', value: stats.nuevos, icon: TrendingUp, color: 'from-purple-100/40 to-fuchsia-100/20', textColor: 'text-purple-600' },
+        ].map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <Card key={stat.title} className={`shadow-sm border border-white/40 bg-gradient-to-br ${stat.color} hover:shadow-md transition-all duration-300 transform hover:-translate-y-1`}>
+              <CardContent className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="p-2.5 bg-white/80 backdrop-blur-sm rounded-xl shadow-sm">
+                    <Icon className={`w-5 h-5 ${stat.textColor}`} />
+                  </div>
+                </div>
+                <div className="text-3xl font-bold text-slate-800 mb-1 tracking-tight">{stat.value}</div>
+                <div className="text-sm font-medium text-slate-600">{stat.title}</div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       <Card className="shadow-sm overflow-hidden border-slate-200">

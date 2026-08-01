@@ -422,7 +422,7 @@ export class RequestsService {
         OR: [
           { scheduled_start_at: { gte: today, lt: tomorrow } },
           { scheduled_start_at: null, created_at: { gte: today } },
-          { status: { in: ['en_camino', 'arrived', 'in_progress'] } },
+          { status: { in: ['accepted', 'en_camino', 'arrived', 'in_progress'] } },
         ],
       },
       include: {

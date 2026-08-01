@@ -74,6 +74,57 @@ let AddressesService = class AddressesService {
     `;
         return this.prisma.address.findUnique({ where: { id } });
     }
+    async updateAddress(userId, addressId, data) {
+        const addr = await this.prisma.address.findUnique({ where: { id: addressId } });
+        if (!addr || addr.user_id !== userId)
+            throw new common_1.NotFoundException('Dirección no encontrada');
+        let lat = data.lat;
+        let lng = data.lng;
+        if (!lat || !lng) {
+            const addressText = `${data.street_line1}, ${data.neighborhood || ''}, ${data.city}, Mexico`;
+            let geocodedLat = 32.5149;
+            let geocodedLng = -117.0382;
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addressText)}&format=json&limit=1`, {
+                    headers: { 'User-Agent': 'SersaAppGeocoder/1.0' }
+                });
+                const results = await res.json();
+                if (results && results.length > 0) {
+                    geocodedLat = parseFloat(results[0].lat);
+                    geocodedLng = parseFloat(results[0].lon);
+                }
+            }
+            catch (e) {
+                console.error('Geocoding during update failed:', e);
+            }
+            lat = geocodedLat;
+            lng = geocodedLng;
+        }
+        let validLabel = 'other';
+        const inputLabel = (data.label || '').toLowerCase();
+        if (['home', 'work', 'other'].includes(inputLabel))
+            validLabel = inputLabel;
+        const customLabel = validLabel === 'other' && data.label && !['home', 'work', 'other'].includes(inputLabel)
+            ? data.label
+            : (data.custom_label || null);
+        const wkt = `POINT(${lng} ${lat})`;
+        await this.prisma.$executeRaw `
+      UPDATE addresses
+      SET label = ${validLabel}::"AddressLabel",
+          custom_label = ${customLabel},
+          street_line1 = ${data.street_line1},
+          street_line2 = ${data.street_line2 || null},
+          neighborhood = ${data.neighborhood || null},
+          city = ${data.city},
+          state = ${data.state || null},
+          postal_code = ${data.postal_code},
+          references_text = ${data.references_text || null},
+          location = ST_GeomFromText(${wkt}, 4326),
+          updated_at = NOW()
+      WHERE id = ${addressId}
+    `;
+        return this.prisma.address.findUnique({ where: { id: addressId } });
+    }
     async deleteAddress(userId, addressId) {
         const addr = await this.prisma.address.findUnique({ where: { id: addressId } });
         if (!addr || addr.user_id !== userId)

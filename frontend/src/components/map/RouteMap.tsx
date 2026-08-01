@@ -8,6 +8,7 @@ import { MapPin, Navigation } from 'lucide-react';
 
 const TIJUANA_CENTER = { lat: 32.5149, lng: -117.0382 };
 const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
+const ROUTE_COLORS = ['#4DB4D7', '#F59E0B', '#10B981', '#8B5CF6', '#EC4899', '#F43F5E'];
 
 export type MapRequestPoint = {
   id: string;
@@ -55,7 +56,7 @@ export default function RouteMap({ stops, availableRequests = [], className }: R
     [stops, availableRequests],
   );
 
-  const [routeLine, setRouteLine] = useState<any>(null);
+  const [routeSegments, setRouteSegments] = useState<any[]>([]);
   const [hasFitBounds, setHasFitBounds] = useState(false);
 
   const pointIdsString = useMemo(
@@ -118,38 +119,53 @@ export default function RouteMap({ stops, availableRequests = [], className }: R
       }
 
       if (linePoints.length < 2) {
-        if (active) setRouteLine(null);
+        if (active) setRouteSegments([]);
         return;
       }
 
       try {
-        const coordsQuery = linePoints.map((p) => `${p[0]},${p[1]}`).join(';');
-        const url = `https://router.project-osrm.org/route/v1/driving/${coordsQuery}?overview=full&geometries=geojson`;
+        const promises = [];
+        for (let i = 0; i < linePoints.length - 1; i++) {
+          const p1 = linePoints[i];
+          const p2 = linePoints[i + 1];
+          const url = `https://router.project-osrm.org/route/v1/driving/${p1[0]},${p1[1]};${p2[0]},${p2[1]}?overview=full&geometries=geojson`;
 
-        const res = await fetch(url);
-        if (!res.ok) throw new Error('OSRM routing request failed');
-        const data = await res.json();
+          promises.push(
+            fetch(url)
+              .then((res) => {
+                if (!res.ok) throw new Error('OSRM routing request failed');
+                return res.json();
+              })
+              .then((data) => {
+                if (data.routes && data.routes.length > 0) {
+                  return {
+                    id: `route-segment-${i}`,
+                    color: ROUTE_COLORS[i % ROUTE_COLORS.length],
+                    geometry: data.routes[0].geometry,
+                  };
+                }
+                return null;
+              })
+              .catch((err) => {
+                console.error('Error fetching street route segment:', err);
+                return {
+                  id: `route-segment-fallback-${i}`,
+                  color: ROUTE_COLORS[i % ROUTE_COLORS.length],
+                  geometry: {
+                    type: 'LineString' as const,
+                    coordinates: [p1, p2],
+                  },
+                };
+              })
+          );
+        }
 
-        if (data.routes && data.routes.length > 0 && active) {
-          setRouteLine({
-            type: 'Feature' as const,
-            properties: {},
-            geometry: data.routes[0].geometry,
-          });
+        const results = await Promise.all(promises);
+        if (active) {
+          setRouteSegments(results.filter(Boolean));
         }
       } catch (error) {
-        console.error('Error fetching street route:', error);
-        // Fallback to straight line representation
-        if (active) {
-          setRouteLine({
-            type: 'Feature' as const,
-            properties: {},
-            geometry: {
-              type: 'LineString' as const,
-              coordinates: linePoints,
-            },
-          });
-        }
+        console.error('Error in route segments:', error);
       }
     };
 
@@ -208,13 +224,13 @@ export default function RouteMap({ stops, availableRequests = [], className }: R
       >
         <NavigationControl position="top-right" showCompass={false} />
 
-        {routeLine && (
-          <Source id="route-line" type="geojson" data={routeLine}>
+        {routeSegments.map((segment) => (
+          <Source key={segment.id} id={segment.id} type="geojson" data={{ type: 'Feature', properties: {}, geometry: segment.geometry } as any}>
             <Layer
-              id="route-line-layer"
+              id={`${segment.id}-layer`}
               type="line"
               paint={{
-                'line-color': '#4DB4D7',
+                'line-color': segment.color,
                 'line-width': 5,
                 'line-opacity': 0.85,
               }}
@@ -224,7 +240,7 @@ export default function RouteMap({ stops, availableRequests = [], className }: R
               }}
             />
           </Source>
-        )}
+        ))}
 
         {userLocation && (
           <Marker longitude={userLocation.lng} latitude={userLocation.lat} anchor="center">

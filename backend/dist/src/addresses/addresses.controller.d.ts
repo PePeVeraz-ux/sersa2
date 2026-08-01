@@ -40,6 +40,25 @@ export declare class AddressesController {
         updated_at: Date;
         deleted_at: Date | null;
     } | null>;
+    updateAddress(req: any, id: string, data: any): Promise<{
+        id: string;
+        user_id: string;
+        label: import(".prisma/client").$Enums.AddressLabel;
+        custom_label: string | null;
+        street_line1: string;
+        street_line2: string | null;
+        neighborhood: string | null;
+        city: string;
+        state: string | null;
+        postal_code: string;
+        country_code: string;
+        references_text: string | null;
+        operational_zone_id: string | null;
+        is_default: boolean;
+        created_at: Date;
+        updated_at: Date;
+        deleted_at: Date | null;
+    } | null>;
     deleteAddress(req: any, id: string): Promise<{
         id: string;
         user_id: string;

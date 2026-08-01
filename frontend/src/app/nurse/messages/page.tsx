@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Search, Phone, Video, MoreVertical, Paperclip, Send, Users, MessageSquare } from 'lucide-react';
+import { Search, Phone, Paperclip, Send, MessageSquare, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
@@ -16,8 +16,8 @@ export default function NurseMessages() {
   const [contacts, setContacts] = useState<any[]>([]);
   const [selectedContact, setSelectedContact] = useState<any>(null);
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState<any[]>([]);
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [messagesByRequest, setMessagesByRequest] = useState<Record<string, any[]>>({});
+  const [convToReq, setConvToReq] = useState<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch mis citas asignadas para armar la lista de contactos (pacientes)
@@ -25,16 +25,29 @@ export default function NurseMessages() {
     if (!token) return;
     apiFetch<any[]>('/requests/nurse/requests', { token })
       .then(data => {
-        const uniqueContacts = data.map((req: any) => ({
-          serviceRequestId: req.id,
-          name: `${req.patient.patient_profile?.first_name || 'Paciente'} ${req.patient.patient_profile?.last_name || ''}`,
-          role: 'Paciente',
-          online: false, // ideally driven by socket events
-          serviceName: req.items[0]?.service?.name || 'Servicio'
-        }));
-        setContacts(uniqueContacts);
-        if (uniqueContacts.length > 0) {
-          setSelectedContact(uniqueContacts[0]);
+        const uniquePatients: Record<string, any> = {};
+        
+        // Sort requests by created_at desc so latest is first
+        const sortedData = [...data].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        sortedData.forEach((req: any) => {
+          const patientId = req.patient.id;
+          if (!uniquePatients[patientId]) {
+            uniquePatients[patientId] = {
+              patientId,
+              name: `${req.patient.patient_profile?.first_name || 'Paciente'} ${req.patient.patient_profile?.last_name || ''}`,
+              role: 'Paciente',
+              online: false,
+              requests: []
+            };
+          }
+          uniquePatients[patientId].requests.push(req);
+        });
+
+        const contactsList = Object.values(uniquePatients);
+        setContacts(contactsList);
+        if (contactsList.length > 0) {
+          setSelectedContact(contactsList[0]);
         }
       })
       .catch(console.error);
@@ -44,15 +57,29 @@ export default function NurseMessages() {
   useEffect(() => {
     if (!socket || !selectedContact) return;
 
-    socket.emit('joinConversation', { serviceRequestId: selectedContact.serviceRequestId });
+    // Join room for each request
+    selectedContact.requests.forEach((req: any) => {
+      socket.emit('joinConversation', { serviceRequestId: req.id });
+    });
 
     const handleHistory = (data: any) => {
-      setConversationId(data.conversationId);
-      setMessages(data.messages);
+      setConvToReq(prev => ({ ...prev, [data.conversationId]: data.serviceRequestId }));
+      setMessagesByRequest(prev => ({ ...prev, [data.serviceRequestId]: data.messages }));
     };
 
     const handleNewMessage = (msg: any) => {
-      setMessages(prev => [...prev, msg]);
+      setConvToReq(prev => {
+        const reqId = prev[msg.conversation_id];
+        if (reqId) {
+          setMessagesByRequest(prevMsgs => {
+            const msgs = prevMsgs[reqId] || [];
+            // Prevent duplicates
+            if (msgs.some(m => m.id === msg.id)) return prevMsgs;
+            return { ...prevMsgs, [reqId]: [...msgs, msg] };
+          });
+        }
+        return prev;
+      });
     };
 
     socket.on('conversationHistory', handleHistory);
@@ -67,13 +94,30 @@ export default function NurseMessages() {
   // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messagesByRequest]);
 
   const handleSend = () => {
-    if (!message.trim() || !conversationId || !socket) return;
-    socket.emit('sendMessage', { conversationId, text: message });
+    if (!message.trim() || !selectedContact || !socket) return;
+    
+    // We send to the most recent request (index 0 because we sorted desc)
+    const activeRequest = selectedContact.requests[0];
+    const targetConversationId = Object.keys(convToReq).find(key => convToReq[key] === activeRequest.id);
+    
+    if (!targetConversationId) return;
+
+    socket.emit('sendMessage', { conversationId: targetConversationId, text: message });
     setMessage('');
   };
+
+  const renderRequests = useMemo(() => {
+    if (!selectedContact) return [];
+    // Sort chronological for display (oldest first, newest at bottom)
+    return [...selectedContact.requests].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  }, [selectedContact]);
+
+  const totalMessagesCount = useMemo(() => {
+    return Object.values(messagesByRequest).reduce((acc, curr) => acc + curr.length, 0);
+  }, [messagesByRequest]);
 
   return (
     <motion.div 
@@ -106,11 +150,11 @@ export default function NurseMessages() {
             </div>
           ) : contacts.map((contact) => (
             <div 
-              key={contact.serviceRequestId} 
+              key={contact.patientId} 
               onClick={() => setSelectedContact(contact)}
               className={cn(
                 "flex items-center gap-3 p-4 cursor-pointer transition-all border-b last:border-0",
-                selectedContact?.serviceRequestId === contact.serviceRequestId 
+                selectedContact?.patientId === contact.patientId 
                   ? "bg-sky-50/50 border-l-4 border-l-[#4DB4D7]" 
                   : "hover:bg-slate-50 border-l-4 border-l-transparent"
               )}
@@ -126,7 +170,7 @@ export default function NurseMessages() {
                   <h3 className="font-semibold text-slate-800 text-sm truncate">{contact.name}</h3>
                 </div>
                 <div className="flex justify-between items-center">
-                  <p className="text-xs text-slate-500 truncate">{contact.serviceName}</p>
+                  <p className="text-xs text-slate-500 truncate">{contact.requests.length} Cita{contact.requests.length !== 1 ? 's' : ''}</p>
                 </div>
               </div>
             </div>
@@ -147,7 +191,7 @@ export default function NurseMessages() {
               <div>
                 <h3 className="font-semibold text-slate-800">{selectedContact.name}</h3>
                 <p className="text-xs text-slate-500 flex items-center gap-1">
-                  Paciente de: {selectedContact.serviceName}
+                  Paciente ({selectedContact.requests.length} citas)
                 </p>
               </div>
             </div>
@@ -157,35 +201,55 @@ export default function NurseMessages() {
           </div>
 
           {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/50">
-            {messages.length === 0 && (
+          <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-slate-50/50">
+            {totalMessagesCount === 0 && (
               <div className="text-center text-slate-400 text-sm my-8">
                 Envía un mensaje para comenzar la conversación.
               </div>
             )}
-            {messages.map((msg: any) => {
-              const isMe = msg.sender_id === user?.id;
+            
+            {renderRequests.map((req: any) => {
+              const reqMessages = messagesByRequest[req.id] || [];
+              const serviceName = req.items?.[0]?.service?.name || 'Servicio';
+              
               return (
-                <motion.div 
-                  key={msg.id} 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={cn("flex flex-col", isMe ? "items-end" : "items-start")}
-                >
-                  <div 
-                    className={cn(
-                      "max-w-[70%] rounded-2xl px-5 py-3 shadow-sm",
-                      isMe 
-                        ? "bg-[#4DB4D7] text-white rounded-tr-sm" 
-                        : "bg-white border border-slate-100 text-slate-700 rounded-tl-sm"
-                    )}
-                  >
-                    <p className="text-sm leading-relaxed">{msg.body}</p>
+                <div key={req.id} className="space-y-4">
+                  {/* Divider for the appointment */}
+                  <div className="flex items-center gap-4 my-6">
+                    <div className="h-px bg-slate-200 flex-1" />
+                    <div className="flex items-center gap-1.5 px-3 py-1 bg-white border border-slate-200 rounded-full text-xs font-medium text-slate-500 shadow-sm">
+                      <Calendar className="w-3.5 h-3.5" />
+                      Cita: {serviceName} • {new Date(req.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                    </div>
+                    <div className="h-px bg-slate-200 flex-1" />
                   </div>
-                  <span className="text-xs text-slate-400 mt-1 px-1">
-                    {new Date(msg.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </motion.div>
+
+                  {reqMessages.map((msg: any) => {
+                    const isMe = msg.sender_id === user?.id;
+                    return (
+                      <motion.div 
+                        key={msg.id} 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={cn("flex flex-col", isMe ? "items-end" : "items-start")}
+                      >
+                        <div 
+                          className={cn(
+                            "max-w-[70%] rounded-2xl px-5 py-3 shadow-sm",
+                            isMe 
+                              ? "bg-[#4DB4D7] text-white rounded-tr-sm" 
+                              : "bg-white border border-slate-100 text-slate-700 rounded-tl-sm"
+                          )}
+                        >
+                          <p className="text-sm leading-relaxed">{msg.body}</p>
+                        </div>
+                        <span className="text-xs text-slate-400 mt-1 px-1">
+                          {new Date(msg.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </motion.div>
+                    );
+                  })}
+                </div>
               );
             })}
             <div ref={messagesEndRef} />
@@ -198,7 +262,7 @@ export default function NurseMessages() {
                 <Paperclip className="w-5 h-5" />
               </button>
               <Input 
-                placeholder="Escribe un mensaje..." 
+                placeholder="Escribe un mensaje para la cita más reciente..." 
                 className="flex-1 h-11 bg-slate-50 border-slate-200 rounded-xl focus-visible:ring-1"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}

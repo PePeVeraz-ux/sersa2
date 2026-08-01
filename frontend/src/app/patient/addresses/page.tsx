@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { MapPin, Plus, Trash2, Loader2, Home, Briefcase, Star, X } from 'lucide-react';
+import { MapPin, Plus, Trash2, Loader2, Home, Briefcase, Star, X, Pencil, Check } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { apiFetch } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -22,6 +22,17 @@ const labelNames: Record<string, string> = {
   other: 'Otra',
 };
 
+const emptyForm = {
+  label: 'home',
+  street_line1: '',
+  street_line2: '',
+  neighborhood: '',
+  city: '',
+  state: '',
+  postal_code: '',
+  references_text: '',
+};
+
 export default function PatientAddresses() {
   const { token } = useAuth();
   const [addresses, setAddresses] = useState<any[]>([]);
@@ -29,16 +40,8 @@ export default function PatientAddresses() {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    label: 'home',
-    street_line1: '',
-    street_line2: '',
-    neighborhood: '',
-    city: '',
-    state: '',
-    postal_code: '',
-    references_text: '',
-  });
+  const [editingId, setEditingId] = useState<string | null>(null); // null = creating new
+  const [formData, setFormData] = useState({ ...emptyForm });
 
   const fetchAddresses = () => {
     if (!token) return;
@@ -52,17 +55,53 @@ export default function PatientAddresses() {
     fetchAddresses();
   }, [token]);
 
+  const openCreate = () => {
+    setEditingId(null);
+    setFormData({ ...emptyForm });
+    setShowForm(true);
+  };
+
+  const openEdit = (addr: any) => {
+    setEditingId(addr.id);
+    setFormData({
+      label: addr.label || 'home',
+      street_line1: addr.street_line1 || '',
+      street_line2: addr.street_line2 || '',
+      neighborhood: addr.neighborhood || '',
+      city: addr.city || '',
+      state: addr.state || '',
+      postal_code: addr.postal_code || '',
+      references_text: addr.references_text || '',
+    });
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setFormData({ ...emptyForm });
+  };
+
   const handleSave = async () => {
     if (!token || !formData.street_line1 || !formData.city || !formData.postal_code) return;
     setSaving(true);
     try {
-      await apiFetch('/addresses', {
-        method: 'POST',
-        token,
-        body: JSON.stringify(formData),
-      });
-      setShowForm(false);
-      setFormData({ label: 'home', street_line1: '', street_line2: '', neighborhood: '', city: '', state: '', postal_code: '', references_text: '' });
+      if (editingId) {
+        // Update existing
+        await apiFetch(`/addresses/${editingId}`, {
+          method: 'PATCH',
+          token,
+          body: JSON.stringify(formData),
+        });
+      } else {
+        // Create new
+        await apiFetch('/addresses', {
+          method: 'POST',
+          token,
+          body: JSON.stringify(formData),
+        });
+      }
+      closeForm();
       fetchAddresses();
     } catch (e) {
       console.error(e);
@@ -105,7 +144,7 @@ export default function PatientAddresses() {
         </div>
         {!showForm && (
           <Button
-            onClick={() => setShowForm(true)}
+            onClick={openCreate}
             className="bg-[#4DB4D7] hover:bg-[#3ba0c2] text-white shadow-sm gap-2 h-11 px-6"
           >
             <Plus className="w-4 h-4" />
@@ -114,12 +153,15 @@ export default function PatientAddresses() {
         )}
       </div>
 
-      {/* Add Form */}
+      {/* Add / Edit Form */}
       {showForm && (
         <Card className="shadow-md border-[#4DB4D7]/20 border-2">
           <CardHeader className="pb-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-lg text-slate-800">Nueva Dirección</CardTitle>
-            <button onClick={() => setShowForm(false)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+            <CardTitle className="text-lg text-slate-800 flex items-center gap-2">
+              {editingId ? <Pencil className="w-5 h-5 text-[#4DB4D7]" /> : <Plus className="w-5 h-5 text-[#4DB4D7]" />}
+              {editingId ? 'Editar Dirección' : 'Nueva Dirección'}
+            </CardTitle>
+            <button onClick={closeForm} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
               <X className="w-5 h-5 text-slate-400" />
             </button>
           </CardHeader>
@@ -184,12 +226,12 @@ export default function PatientAddresses() {
               <Button
                 onClick={handleSave}
                 disabled={saving || !formData.street_line1 || !formData.city || !formData.postal_code}
-                className="bg-emerald-500 hover:bg-emerald-600 text-white px-8 h-11 shadow-sm"
+                className="bg-emerald-500 hover:bg-emerald-600 text-white px-8 h-11 shadow-sm gap-2"
               >
-                {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
-                Guardar Dirección
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                {editingId ? 'Guardar Cambios' : 'Guardar Dirección'}
               </Button>
-              <Button variant="outline" onClick={() => setShowForm(false)} className="h-11">
+              <Button variant="outline" onClick={closeForm} className="h-11">
                 Cancelar
               </Button>
             </div>
@@ -204,7 +246,7 @@ export default function PatientAddresses() {
             <MapPin className="w-12 h-12 text-slate-300 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-slate-700 mb-1">No tienes direcciones guardadas</h3>
             <p className="text-slate-500 text-sm mb-6">Agrega una dirección para poder solicitar servicios médicos a domicilio.</p>
-            <Button onClick={() => setShowForm(true)} className="bg-[#4DB4D7] hover:bg-[#3ba0c2] text-white gap-2">
+            <Button onClick={openCreate} className="bg-[#4DB4D7] hover:bg-[#3ba0c2] text-white gap-2">
               <Plus className="w-4 h-4" />
               Agregar mi primera dirección
             </Button>
@@ -244,17 +286,28 @@ export default function PatientAddresses() {
                       <p className="text-xs text-slate-400 mt-1">Ref: {addr.references_text}</p>
                     )}
                   </div>
-                  <button
-                    onClick={() => handleDelete(addr.id)}
-                    disabled={!!deletingId}
-                    className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors shrink-0"
-                  >
-                    {deletingId === addr.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-4 h-4" />
-                    )}
-                  </button>
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => openEdit(addr)}
+                      className="p-2 text-slate-400 hover:text-[#4DB4D7] hover:bg-sky-50 rounded-lg transition-colors"
+                      title="Editar dirección"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(addr.id)}
+                      disabled={!!deletingId}
+                      className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                      title="Eliminar dirección"
+                    >
+                      {deletingId === addr.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
                 </CardContent>
               </Card>
             );

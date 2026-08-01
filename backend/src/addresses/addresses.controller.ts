@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Param, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, Request } from '@nestjs/common';
 import { AddressesService } from './addresses.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -17,6 +17,11 @@ export class AddressesController {
     console.log('--- REQ.USER IN CREATE ADDRESS ---', req.user);
     const userId = req.user?.userId || req.user?.id || req.user?.sub;
     return this.addressesService.createAddress(userId, data);
+  }
+
+  @Patch(':id')
+  async updateAddress(@Request() req: any, @Param('id') id: string, @Body() data: any) {
+    return this.addressesService.updateAddress(req.user.userId, id, data);
   }
 
   @Delete(':id')

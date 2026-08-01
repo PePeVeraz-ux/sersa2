@@ -1,15 +1,27 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Eye, Calendar, Users, Clock, DollarSign, MapPin, CheckCircle, Loader2 } from 'lucide-react';
+import { Calendar, Users, Clock, DollarSign, MapPin, CheckCircle, Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { motion } from 'framer-motion';
 import { apiFetch } from '@/lib/api';
 import { NurseAddressSummary } from '@/components/address/NurseAddressSummary';
-import { getAddressTypeLabel } from '@/lib/address';
+import { getAddressTypeLabel, formatFullAddress, getMapsUrl } from '@/lib/address';
+import type { MapRequestPoint } from '@/components/map/RouteMap';
+
+const RouteMap = dynamic(() => import('@/components/map/RouteMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center bg-slate-100">
+      <Loader2 className="w-6 h-6 animate-spin text-[#4DB4D7]" />
+    </div>
+  ),
+});
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -22,12 +34,36 @@ const itemVariants = {
 };
 
 export default function NurseDashboard() {
+  const router = useRouter();
   const { token, user } = useAuth();
   const [availableRequests, setAvailableRequests] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [routeStops, setRouteStops] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
+
+  const mapStops = useMemo(() =>
+    routeStops
+      .map((stop, idx) => {
+        const lat = stop.address?.lat;
+        const lng = stop.address?.lng;
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        const patient = stop.patient?.patient_profile;
+        return {
+          id: stop.id,
+          lat,
+          lng,
+          label: patient ? `${patient.first_name} ${patient.last_name}` : 'Paciente',
+          subtitle: `${getAddressTypeLabel(stop.address)} · ${stop.items?.[0]?.service?.name || ''}`,
+          addressDetail: formatFullAddress(stop.address),
+          references: stop.address?.references_text || undefined,
+          mapsUrl: getMapsUrl(stop.address) || undefined,
+          kind: 'stop' as const,
+          order: idx + 1,
+        } satisfies MapRequestPoint;
+      })
+      .filter(Boolean) as MapRequestPoint[],
+  [routeStops]);
 
   const fetchData = async () => {
     if (!token) return;
@@ -66,10 +102,10 @@ export default function NurseDashboard() {
   };
 
   const statCards = [
-    { title: 'Citas de la Semana', value: String(stats?.weekAppointments ?? '—'), icon: Calendar },
-    { title: 'Pacientes Activos', value: String(stats?.activePatients ?? '—'), icon: Users },
+    { title: 'Citas de la Semana', value: String(stats?.weekAppointments ?? '—'), icon: Calendar, href: '/nurse/schedule' },
+    { title: 'Pacientes Activos', value: String(stats?.activePatients ?? '—'), icon: Users, href: '/nurse/patients' },
     { title: 'Horas Trabajadas', value: stats ? `${stats.hoursWorked}h` : '—', icon: Clock },
-    { title: 'Ingresos del Mes', value: stats ? `$${stats.monthEarnings.toFixed(0)}` : '—', icon: DollarSign, hasEye: true },
+    { title: 'Ingresos del Mes', value: stats ? `$${stats.monthEarnings.toFixed(0)}` : '—', icon: DollarSign },
   ];
 
   return (
@@ -89,8 +125,9 @@ export default function NurseDashboard() {
         {statCards.map((stat, i) => (
           <motion.div 
             key={i} 
+            onClick={() => stat.href && router.push(stat.href)}
             whileHover={{ y: -4, transition: { duration: 0.2 } }}
-            className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 relative overflow-hidden group"
+            className={`bg-white rounded-3xl p-6 shadow-sm border border-slate-100 relative overflow-hidden group${stat.href ? ' cursor-pointer' : ''}`}
           >
             <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:scale-110 transition-transform duration-300">
               <stat.icon className="w-24 h-24" />
@@ -99,11 +136,6 @@ export default function NurseDashboard() {
               <div className="p-3 bg-sky-50 text-sky-600 rounded-2xl">
                 <stat.icon className="w-5 h-5" />
               </div>
-              {stat.hasEye ? (
-                <Eye className="w-5 h-5 text-slate-300 cursor-pointer hover:text-sky-600 transition-colors" />
-              ) : (
-                <MoreHorizontal className="w-5 h-5 text-slate-300 cursor-pointer hover:text-sky-600 transition-colors" />
-              )}
             </div>
             <div className="relative z-10">
               <div className="text-sm font-medium text-slate-500 mb-1">{stat.title}</div>
@@ -185,14 +217,11 @@ export default function NurseDashboard() {
           <div className="bg-white rounded-3xl shadow-sm border border-slate-200 h-full flex flex-col overflow-hidden">
             <div className="flex flex-row items-center justify-between p-6 border-b border-slate-100">
               <h3 className="text-lg font-bold text-slate-900">Ruta de Hoy</h3>
-              <MoreHorizontal className="w-5 h-5 text-slate-400 cursor-pointer" />
             </div>
             <div className="flex-1 flex flex-col p-6">
-              {/* Map Placeholder */}
-              <div className="w-full h-48 bg-slate-100 rounded-2xl border flex items-center justify-center mb-8 relative overflow-hidden group cursor-pointer">
-                <div className="absolute inset-0 opacity-40 bg-[url('https://api.mapbox.com/styles/v1/mapbox/light-v11/static/-117.0,32.5,12/600x400?access_token=pk.eyJ1IjoiZXhhbXBsZSIsImEiOiJjam00a3Z0cW0wYXZzM3Zxc2Q3Z2lkMzJwIn0.xxxxx')] bg-cover bg-center group-hover:scale-105 transition-transform duration-700"></div>
-                <div className="absolute inset-0 bg-sky-600/10 mix-blend-multiply"></div>
-                <MapPin className="w-12 h-12 text-sky-600 relative z-10 drop-shadow-lg" />
+              {/* Live Map */}
+              <div className="w-full h-52 rounded-2xl overflow-hidden border border-slate-200 mb-6">
+                <RouteMap stops={mapStops} availableRequests={[]} className="w-full h-full" />
               </div>
 
               {/* Timeline */}

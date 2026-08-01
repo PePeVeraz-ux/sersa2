@@ -29,6 +29,9 @@ let AddressesController = class AddressesController {
         const userId = req.user?.userId || req.user?.id || req.user?.sub;
         return this.addressesService.createAddress(userId, data);
     }
+    async updateAddress(req, id, data) {
+        return this.addressesService.updateAddress(req.user.userId, id, data);
+    }
     async deleteAddress(req, id) {
         return this.addressesService.deleteAddress(req.user.userId, id);
     }
@@ -49,6 +52,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], AddressesController.prototype, "createAddress", null);
+__decorate([
+    (0, common_1.Patch)(':id'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], AddressesController.prototype, "updateAddress", null);
 __decorate([
     (0, common_1.Delete)(':id'),
     __param(0, (0, common_1.Request)()),
