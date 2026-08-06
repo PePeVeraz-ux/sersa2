@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ChatGateway } from '../chat/chat.gateway';
 
 @Injectable()
 export class RequestsService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private chatGateway: ChatGateway,
+  ) { }
 
   private async attachAddressCoordinates<T extends { address?: { id: string; street_line1?: string; neighborhood?: string | null; city?: string } | null }>(
     items: T[],
@@ -188,7 +192,7 @@ export class RequestsService {
   }
 
   async acceptRequest(requestId: string, nurseId: string) {
-    const nurse = await this.prisma.user.findUnique({ where: { id: nurseId } });
+    const nurse = await this.prisma.user.findUnique({ where: { id: nurseId }, include: { nurse_profile: true } });
     if (!nurse || nurse.role !== 'nurse' || nurse.status !== 'active') {
       throw new BadRequestException('Tu cuenta de enfermero no está activa para aceptar servicios');
     }
@@ -211,6 +215,18 @@ export class RequestsService {
           address: true,
           patient: { include: { patient_profile: true } },
         },
+      });
+
+      const nurseName = nurse.nurse_profile
+        ? `${nurse.nurse_profile.first_name || ''} ${nurse.nurse_profile.last_name || ''}`.trim()
+        : 'El enfermero';
+
+      // Notify patient about acceptance
+      this.chatGateway.sendNotificationToUser(updated.patient_user_id, {
+        type: 'request_accepted',
+        title: 'Solicitud aceptada',
+        desc: `${nurseName} ha aceptado tu solicitud.`,
+        requestId: updated.id,
       });
 
       await tx.serviceRequestStatusHistory.create({
@@ -297,10 +313,44 @@ export class RequestsService {
     if (status === 'in_progress') data.started_at = new Date();
     if (status === 'completed') data.completed_at = new Date();
 
+    const nurse = await this.prisma.user.findUnique({
+      where: { id: nurseId },
+      include: { nurse_profile: true },
+    });
+    const nurseName = nurse?.nurse_profile
+      ? `${nurse.nurse_profile.first_name || ''} ${nurse.nurse_profile.last_name || ''}`.trim()
+      : 'El enfermero';
+
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.serviceRequest.update({
         where: { id: requestId },
         data,
+      });
+
+      // Notify patient about status change with specific messages
+      let title = '';
+      let desc = '';
+      if (status === 'en_camino') {
+        title = 'Enfermero en camino';
+        desc = `${nurseName} está en camino a tu ubicación.`;
+      } else if (status === 'arrived') {
+        title = 'Enfermero llegó';
+        desc = `${nurseName} ha llegado a tu ubicación.`;
+      } else if (status === 'in_progress') {
+        title = 'Servicio iniciado';
+        desc = `${nurseName} ha comenzado el servicio.`;
+      } else if (status === 'completed') {
+        title = 'Servicio completado';
+        desc = `El servicio ha sido completado por ${nurseName}.`;
+      } else {
+        title = 'Estado actualizado';
+        desc = `El estado de tu solicitud cambió a ${status}.`;
+      }
+      this.chatGateway.sendNotificationToUser(updated.patient_user_id, {
+        type: 'request_status',
+        title,
+        desc,
+        requestId: updated.id,
       });
 
       await tx.serviceRequestStatusHistory.create({

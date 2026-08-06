@@ -2,8 +2,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, Mail, Bell, Menu, X, LogOut, Settings, HelpCircle, CheckCircle2, User, ChevronRight } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { useSocket } from '@/context/SocketContext';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
+import { Input } from '@/components/ui/input';
 import { nurseNavItems, patientNavItems } from './Sidebar';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
@@ -11,6 +12,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
+import { apiFetch } from '@/lib/api';
 
 interface HeaderProps {
   title?: string;
@@ -24,17 +26,17 @@ export function Header({ title }: HeaderProps) {
   const pathname = usePathname();
   const isNurse = pathname.startsWith('/nurse');
   const navItems = isNurse ? nurseNavItems : patientNavItems;
-  const { user, logout } = useAuth();
+  const { user, logout, token } = useAuth();
   const rolePrefix = isNurse ? '/nurse' : '/patient';
 
   // Dynamic user data
-  const dynamicName = user ? (user.role === 'nurse' 
+  const dynamicName = user ? (user.role === 'nurse'
     ? `${user.nurse_profile?.first_name || ''} ${user.nurse_profile?.last_name || ''}`.trim() || 'Enfermero(a)'
     : `${user.patient_profile?.first_name || ''} ${user.patient_profile?.last_name || ''}`.trim() || 'Paciente'
   ) : 'Cargando...';
 
   const dynamicRole = user?.role === 'nurse' ? 'Enfermero Certificado' : 'Paciente';
-  
+
   const getInitials = (name: string) => {
     if (!name || name === 'Cargando...' || name === 'Paciente' || name === 'Enfermero(a)') return 'US';
     const parts = name.split(' ').filter(Boolean);
@@ -42,12 +44,103 @@ export function Header({ title }: HeaderProps) {
     if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
     return 'US';
   };
-  
+
   const dynamicInitials = getInitials(dynamicName);
 
+  const { socket } = useSocket();
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showBanner, setShowBanner] = useState(false);
+  const [bannerMessage, setBannerMessage] = useState('');
+  
+  // Show temporary banner when new notification arrives
+  const notificationTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+
+  // Fetch notifications from API and fallback to localStorage
+  useEffect(() => {
+    if (!token) return;
+    apiFetch<any[]>('/chat/notifications', { token })
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          const formatted = data.map((n: any) => ({
+            id: n.id,
+            title: n.title,
+            desc: n.desc,
+            time: new Date(n.time).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+            unread: n.unread,
+          }));
+          setNotifications(formatted);
+          try {
+            const storageKey = user?.id ? `sersa_notifications_${user.id}` : 'sersa_notifications';
+            localStorage.setItem(storageKey, JSON.stringify(formatted));
+          } catch (e) {}
+        } else {
+          const storageKey = user?.id ? `sersa_notifications_${user.id}` : 'sersa_notifications';
+          const saved = localStorage.getItem(storageKey);
+          if (saved) setNotifications(JSON.parse(saved));
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to fetch notifications from API:', err);
+        try {
+          const storageKey = user?.id ? `sersa_notifications_${user.id}` : 'sersa_notifications';
+          const saved = localStorage.getItem(storageKey);
+          if (saved) setNotifications(JSON.parse(saved));
+        } catch (e) {}
+      });
+  }, [token, user?.id]);
+
+  useEffect(() => {
+    if (!socket) return;
+    const handleNotification = (data: any) => {
+      console.log('[Header] Received notification event:', data);
+      const notif = {
+        id: data.id || Date.now(),
+        title: data.title || 'Notificación',
+        desc: data.desc || '',
+        time: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+        unread: true,
+      };
+      setNotifications((prev) => {
+        const updated = [notif, ...prev.filter((p) => p.id !== notif.id)];
+        try {
+          const storageKey = user?.id ? `sersa_notifications_${user.id}` : 'sersa_notifications';
+          localStorage.setItem(storageKey, JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
+      setBannerMessage(`${notif.title}: ${notif.desc}`);
+      setShowBanner(true);
+      setNotificationsOpen(true);
+      // Auto-close banner after 6 seconds
+      if (notificationTimerRef.current) clearTimeout(notificationTimerRef.current);
+      notificationTimerRef.current = setTimeout(() => {
+        setShowBanner(false);
+      }, 6000);
+    };
+
+    socket.on('notification', handleNotification);
+    return () => {
+      socket.off('notification', handleNotification);
+    };
+  }, [socket, user?.id]);
+
+  const markAllAsRead = async () => {
+    const updated = notifications.map((n) => ({ ...n, unread: false }));
+    setNotifications(updated);
+    try {
+      const storageKey = user?.id ? `sersa_notifications_${user.id}` : 'sersa_notifications';
+      localStorage.setItem(storageKey, JSON.stringify(updated));
+      if (token) {
+        await apiFetch('/chat/notifications/read', { method: 'PATCH', token });
+      }
+    } catch (e) {
+      console.error('Error marking notifications as read:', e);
+    }
+  };
 
   // Close dropdowns on outside click (simple implementation)
   const notifRef = useRef<HTMLDivElement>(null);
@@ -66,34 +159,29 @@ export function Header({ title }: HeaderProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Mock Notifications
-  const notifications = [
-    { id: 1, title: 'Servicio Aceptado', desc: 'Tu enfermero está en camino.', time: 'Hace 5 min', unread: true },
-    { id: 2, title: 'Pago Procesado', desc: 'Se ha cobrado $150.00 MXN', time: 'Hace 2 horas', unread: true },
-    { id: 3, title: 'Recordatorio', desc: 'Cita programada para mañana.', time: 'Hace 1 día', unread: false },
-  ];
+  const unreadCount = notifications.filter((n) => n.unread).length;
 
   return (
     <header className="h-auto min-h-[5rem] bg-white/80 backdrop-blur-md border-b border-slate-200/60 flex flex-col justify-center px-4 sm:px-8 sticky top-0 z-30 transition-all shadow-sm">
       <div className="flex items-center justify-between w-full py-4">
-        
+
         {/* Left Side: Mobile Menu Toggle & Title */}
         <div className="flex items-center gap-4 flex-1">
-          <button 
+          <button
             className="md:hidden p-2 -ml-2 text-slate-500 hover:text-slate-800 transition-colors rounded-lg hover:bg-slate-100"
             onClick={() => setMobileMenuOpen(true)}
           >
             <Menu className="w-6 h-6" />
           </button>
-          
+
           <div className="hidden sm:flex flex-col gap-1 w-full max-w-xl">
             <Breadcrumbs />
             {title && <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{title}</h1>}
             {!title && (
               <div className="relative group">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-sky-500 transition-colors" />
-                <Input 
-                  placeholder="Buscar pacientes, citas..." 
+                <Input
+                  placeholder="Buscar pacientes, citas..."
                   className="pl-10 bg-slate-100/50 hover:bg-slate-100 focus:bg-white border-transparent focus:border-sky-500 w-full max-w-md h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-sky-100 transition-all"
                 />
               </div>
@@ -107,20 +195,27 @@ export function Header({ title }: HeaderProps) {
             <button className="hidden sm:block hover:text-slate-800 transition-colors p-2 rounded-full hover:bg-slate-100">
               <Mail className="w-5 h-5" />
             </button>
-            
+
             {/* Notifications Dropdown */}
             <div className="relative" ref={notifRef}>
-              <button 
+              {showBanner && (
+                <div className="fixed top-4 right-4 bg-sky-600 text-white px-5 py-3 rounded-2xl shadow-2xl z-50 animate-bounce max-w-md border border-sky-400">
+                  <p className="font-bold text-sm">{bannerMessage}</p>
+                </div>
+              )}
+              <button
                 onClick={() => { setNotificationsOpen(!notificationsOpen); setProfileOpen(false); }}
                 className={cn("relative p-2 transition-colors rounded-full", notificationsOpen ? "bg-sky-50 text-sky-600" : "hover:text-slate-800 hover:bg-slate-100")}
               >
                 <Bell className="w-5 h-5" />
-                <span className="absolute top-1 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white animate-pulse"></span>
+                )}
               </button>
 
               <AnimatePresence>
                 {notificationsOpen && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -129,24 +224,42 @@ export function Header({ title }: HeaderProps) {
                   >
                     <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                       <h3 className="font-bold text-slate-800">Notificaciones</h3>
-                      <button className="text-xs text-sky-600 hover:underline font-medium">Marcar leídas</button>
+                      {unreadCount > 0 && (
+                        <button onClick={markAllAsRead} className="text-xs text-sky-600 hover:underline font-medium">
+                          Marcar leídas
+                        </button>
+                      )}
                     </div>
                     <div className="max-h-[300px] overflow-y-auto">
-                      {notifications.map(notif => (
-                        <div key={notif.id} className={cn("p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer", notif.unread ? "bg-sky-50/30" : "")}>
-                          <div className="flex items-start gap-3">
-                            <div className={cn("w-2 h-2 rounded-full mt-1.5 shrink-0", notif.unread ? "bg-sky-500" : "bg-transparent")} />
-                            <div>
-                              <h4 className="text-sm font-semibold text-slate-800">{notif.title}</h4>
-                              <p className="text-xs text-slate-500 mt-0.5">{notif.desc}</p>
-                              <span className="text-[10px] text-slate-400 mt-1 block">{notif.time}</span>
+                      {notifications.length === 0 ? (
+                        <div className="p-6 text-center text-slate-400 text-sm">
+                          No tienes notificaciones
+                        </div>
+                      ) : (
+                        notifications.map((notif) => (
+                          <div
+                            key={notif.id}
+                            className={cn(
+                              "p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer",
+                              notif.unread ? "bg-sky-50/40" : ""
+                            )}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div
+                                className={cn(
+                                  "w-2 h-2 rounded-full mt-1.5 shrink-0",
+                                  notif.unread ? "bg-sky-500" : "bg-transparent"
+                                )}
+                              />
+                              <div>
+                                <h4 className="text-sm font-semibold text-slate-800">{notif.title}</h4>
+                                <p className="text-xs text-slate-600 mt-0.5">{notif.desc}</p>
+                                <span className="text-[10px] text-slate-400 mt-1 block">{notif.time}</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="p-3 text-center border-t border-slate-100 bg-slate-50/50 hover:bg-slate-100 transition-colors cursor-pointer">
-                      <span className="text-xs font-semibold text-slate-600">Ver todas</span>
+                        ))
+                      )}
                     </div>
                   </motion.div>
                 )}
@@ -156,7 +269,7 @@ export function Header({ title }: HeaderProps) {
 
           {/* Profile Dropdown */}
           <div className="relative pl-4 sm:pl-6 border-l border-slate-200" ref={profileRef}>
-            <button 
+            <button
               onClick={() => { setProfileOpen(!profileOpen); setNotificationsOpen(false); }}
               className="flex items-center gap-3 text-left hover:opacity-80 transition-opacity focus:outline-none"
             >
@@ -171,7 +284,7 @@ export function Header({ title }: HeaderProps) {
 
             <AnimatePresence>
               {profileOpen && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -182,7 +295,7 @@ export function Header({ title }: HeaderProps) {
                     <p className="font-bold text-slate-800 text-sm">{dynamicName}</p>
                     <p className="text-slate-500 text-xs">{dynamicRole}</p>
                   </div>
-                  
+
                   <Link href={`${rolePrefix}/settings`}>
                     <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors">
                       <User className="w-4 h-4 text-slate-400" /> Mi Perfil
@@ -198,10 +311,10 @@ export function Header({ title }: HeaderProps) {
                       <HelpCircle className="w-4 h-4 text-slate-400" /> Ayuda y Soporte
                     </button>
                   </Link>
-                  
+
                   <div className="h-px bg-slate-100 my-2" />
-                  
-                  <button 
+
+                  <button
                     onClick={() => logout()}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-rose-600 hover:bg-rose-50 transition-colors"
                   >
@@ -220,8 +333,8 @@ export function Header({ title }: HeaderProps) {
         {!title && (
           <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input 
-              placeholder="Buscar..." 
+            <Input
+              placeholder="Buscar..."
               className="pl-10 bg-slate-100/50 h-10 rounded-xl w-full text-sm"
             />
           </div>
@@ -232,14 +345,14 @@ export function Header({ title }: HeaderProps) {
       <AnimatePresence>
         {mobileMenuOpen && (
           <>
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setMobileMenuOpen(false)}
               className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40 md:hidden"
             />
-            <motion.div 
+            <motion.div
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}

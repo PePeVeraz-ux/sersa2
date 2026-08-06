@@ -41,12 +41,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       
       const payload = this.jwtService.verify(token, { secret: process.env.JWT_SECRET || 'default_secret_key_for_development' });
       const userId = payload.sub;
+      console.log('Socket connected for user:', userId);
       client.data.user = payload;
 
       if (!this.connectedUsers.has(userId)) {
         this.connectedUsers.set(userId, new Set());
       }
+      // Store socket id for later notification checks
       this.connectedUsers.get(userId)!.add(client.id);
+      // Add socket to a room for the user for easier targeting
+      client.join(`user:${userId}`);
+      this.logger.log(`Socket joined room user:${userId}`);
 
       this.logger.log(`Client connected: ${client.id} (User: ${userId})`);
       
@@ -75,6 +80,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: { serviceRequestId: string }
   ) {
+    // Emit joinRoom to server with userId for room joining (if needed)
+    client.emit('joinRoom', { userId: client.data.user?.sub });
     const conversation = await this.chatService.getOrCreateConversation(payload.serviceRequestId);
     client.join(`conv_${conversation.id}`);
     
@@ -113,5 +120,48 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       userId,
       isTyping: payload.isTyping
     });
+  }
+
+  /**
+   * Send a real-time notification to a specific user.
+   * Called from other services (e.g. RequestsService) to push events to connected clients.
+   */
+  async sendNotificationToUser(
+    userId: string,
+    notification: { type: string; title: string; desc: string; requestId?: string },
+  ) {
+    // 1. Save to Database
+    try {
+      await this.chatService.createNotification(userId, notification.title, notification.desc, notification);
+    } catch (e) {
+      this.logger.error(`Failed to save notification to DB for user ${userId}: ${e.message}`);
+    }
+
+    const payload = {
+      ...notification,
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      time: new Date().toISOString(),
+    };
+
+    const room = `user:${userId}`;
+    const connectedSocketIds = this.connectedUsers.get(userId);
+    this.logger.log(`[NOTIFY] Attempting to send notification to user ${userId}`);
+    this.logger.log(`[NOTIFY] Connected sockets for user: ${connectedSocketIds ? connectedSocketIds.size : 0}`);
+    this.logger.log(`[NOTIFY] Emitting 'notification' to room: ${room}`);
+
+    // Emit to room
+    this.server.to(room).emit('notification', payload);
+
+    // Also direct emit to all active sockets matching userId
+    if (this.server?.sockets?.sockets) {
+      this.server.sockets.sockets.forEach((socket) => {
+        if (socket.data?.user?.sub === userId) {
+          this.logger.log(`[NOTIFY] Direct emit to socket ${socket.id} for user ${userId}`);
+          socket.emit('notification', payload);
+        }
+      });
+    }
+
+    this.logger.log(`[NOTIFY] Notification emitted: ${notification.title}`);
   }
 }

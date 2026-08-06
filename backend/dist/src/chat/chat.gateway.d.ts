@@ -27,4 +27,10 @@ export declare class ChatGateway implements OnGatewayConnection, OnGatewayDiscon
         conversationId: string;
         isTyping: boolean;
     }): void;
+    sendNotificationToUser(userId: string, notification: {
+        type: string;
+        title: string;
+        desc: string;
+        requestId?: string;
+    }): Promise<void>;
 }

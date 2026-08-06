@@ -99,4 +99,27 @@ export declare class ChatService {
         created_at: Date;
         deleted_at: Date | null;
     })[]>;
+    createNotification(userId: string, title: string, body: string, payload?: any): Promise<{
+        id: string;
+        user_id: string;
+        channel: import(".prisma/client").$Enums.NotificationChannel;
+        title: string;
+        body: string;
+        payload: import(".prisma/client").Prisma.JsonValue | null;
+        read_at: Date | null;
+        sent_at: Date | null;
+        created_at: Date;
+    }>;
+    getUserNotifications(userId: string): Promise<{
+        id: string;
+        user_id: string;
+        channel: import(".prisma/client").$Enums.NotificationChannel;
+        title: string;
+        body: string;
+        payload: import(".prisma/client").Prisma.JsonValue | null;
+        read_at: Date | null;
+        sent_at: Date | null;
+        created_at: Date;
+    }[]>;
+    markNotificationsAsRead(userId: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
 }

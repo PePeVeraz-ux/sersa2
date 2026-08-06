@@ -14,18 +14,6 @@ export declare class ClinicalReportsService {
         updated_at: Date;
     }>;
     getNurseReports(nurseId: string): Promise<({
-        vital_signs_records: {
-            id: string;
-            clinical_report_id: string;
-            blood_pressure_sys: number | null;
-            blood_pressure_dia: number | null;
-            heart_rate_bpm: number | null;
-            temperature_c: import("@prisma/client/runtime/library").Decimal | null;
-            glucose_mg_dl: import("@prisma/client/runtime/library").Decimal | null;
-            oxygen_saturation: import("@prisma/client/runtime/library").Decimal | null;
-            respiratory_rate: number | null;
-            recorded_at: Date;
-        }[];
         service_request: {
             patient: {
                 patient_profile: {
@@ -107,18 +95,6 @@ export declare class ClinicalReportsService {
             created_at: Date;
             updated_at: Date;
         };
-    } & {
-        id: string;
-        service_request_id: string;
-        nurse_user_id: string;
-        observations: string;
-        wound_status: string | null;
-        procedures_done: string | null;
-        recommendations: string | null;
-        created_at: Date;
-        updated_at: Date;
-    })[]>;
-    getReportByRequest(requestId: string, userId: string): Promise<{
         vital_signs_records: {
             id: string;
             clinical_report_id: string;
@@ -131,6 +107,18 @@ export declare class ClinicalReportsService {
             respiratory_rate: number | null;
             recorded_at: Date;
         }[];
+    } & {
+        id: string;
+        service_request_id: string;
+        nurse_user_id: string;
+        observations: string;
+        wound_status: string | null;
+        procedures_done: string | null;
+        recommendations: string | null;
+        created_at: Date;
+        updated_at: Date;
+    })[]>;
+    getReportByRequest(requestId: string, userId: string): Promise<{
         service_request: {
             assigned_nurse: ({
                 nurse_profile: {
@@ -234,6 +222,18 @@ export declare class ClinicalReportsService {
             created_at: Date;
             updated_at: Date;
         };
+        vital_signs_records: {
+            id: string;
+            clinical_report_id: string;
+            blood_pressure_sys: number | null;
+            blood_pressure_dia: number | null;
+            heart_rate_bpm: number | null;
+            temperature_c: import("@prisma/client/runtime/library").Decimal | null;
+            glucose_mg_dl: import("@prisma/client/runtime/library").Decimal | null;
+            oxygen_saturation: import("@prisma/client/runtime/library").Decimal | null;
+            respiratory_rate: number | null;
+            recorded_at: Date;
+        }[];
     } & {
         id: string;
         service_request_id: string;

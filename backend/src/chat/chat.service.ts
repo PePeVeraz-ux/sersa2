@@ -59,4 +59,30 @@ export class ChatService {
       }
     });
   }
+
+  async createNotification(userId: string, title: string, body: string, payload?: any) {
+    return this.prisma.notification.create({
+      data: {
+        user_id: userId,
+        title,
+        body,
+        payload,
+      },
+    });
+  }
+
+  async getUserNotifications(userId: string) {
+    return this.prisma.notification.findMany({
+      where: { user_id: userId },
+      orderBy: { created_at: 'desc' },
+      take: 30,
+    });
+  }
+
+  async markNotificationsAsRead(userId: string) {
+    return this.prisma.notification.updateMany({
+      where: { user_id: userId, read_at: null },
+      data: { read_at: new Date() },
+    });
+  }
 }

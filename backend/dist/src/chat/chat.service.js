@@ -67,6 +67,29 @@ let ChatService = ChatService_1 = class ChatService {
             }
         });
     }
+    async createNotification(userId, title, body, payload) {
+        return this.prisma.notification.create({
+            data: {
+                user_id: userId,
+                title,
+                body,
+                payload,
+            },
+        });
+    }
+    async getUserNotifications(userId) {
+        return this.prisma.notification.findMany({
+            where: { user_id: userId },
+            orderBy: { created_at: 'desc' },
+            take: 30,
+        });
+    }
+    async markNotificationsAsRead(userId) {
+        return this.prisma.notification.updateMany({
+            where: { user_id: userId, read_at: null },
+            data: { read_at: new Date() },
+        });
+    }
 };
 exports.ChatService = ChatService;
 exports.ChatService = ChatService = ChatService_1 = __decorate([

@@ -27,18 +27,30 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    console.log('[SocketContext] Connecting socket to:', API_BASE, 'with token:', token ? token.substring(0, 20) + '...' : 'NONE');
     const newSocket = io(API_BASE, {
       auth: {
         token
-      }
+      },
+      transports: ['websocket', 'polling'],
     });
 
     newSocket.on('connect', () => {
+      console.log('[SocketContext] Socket connected! ID:', newSocket.id);
       setConnected(true);
     });
 
     newSocket.on('disconnect', () => {
+      console.log('[SocketContext] Socket disconnected');
       setConnected(false);
+    });
+
+    newSocket.on('connect_error', (err) => {
+      console.error('[SocketContext] Socket connection error:', err.message);
+    });
+
+    newSocket.on('notification', (data) => {
+      console.log('[SocketContext] Received notification event:', data);
     });
 
     setSocket(newSocket);

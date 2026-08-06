@@ -13,10 +13,13 @@ exports.RequestsService = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const prisma_service_1 = require("../prisma/prisma.service");
+const chat_gateway_1 = require("../chat/chat.gateway");
 let RequestsService = class RequestsService {
     prisma;
-    constructor(prisma) {
+    chatGateway;
+    constructor(prisma, chatGateway) {
         this.prisma = prisma;
+        this.chatGateway = chatGateway;
     }
     async attachAddressCoordinates(items) {
         const addressIds = [...new Set(items.map((item) => item.address?.id).filter(Boolean))];
@@ -177,7 +180,7 @@ let RequestsService = class RequestsService {
         return this.attachAddressCoordinates(requests);
     }
     async acceptRequest(requestId, nurseId) {
-        const nurse = await this.prisma.user.findUnique({ where: { id: nurseId } });
+        const nurse = await this.prisma.user.findUnique({ where: { id: nurseId }, include: { nurse_profile: true } });
         if (!nurse || nurse.role !== 'nurse' || nurse.status !== 'active') {
             throw new common_1.BadRequestException('Tu cuenta de enfermero no está activa para aceptar servicios');
         }
@@ -198,6 +201,15 @@ let RequestsService = class RequestsService {
                     address: true,
                     patient: { include: { patient_profile: true } },
                 },
+            });
+            const nurseName = nurse.nurse_profile
+                ? `${nurse.nurse_profile.first_name || ''} ${nurse.nurse_profile.last_name || ''}`.trim()
+                : 'El enfermero';
+            this.chatGateway.sendNotificationToUser(updated.patient_user_id, {
+                type: 'request_accepted',
+                title: 'Solicitud aceptada',
+                desc: `${nurseName} ha aceptado tu solicitud.`,
+                requestId: updated.id,
             });
             await tx.serviceRequestStatusHistory.create({
                 data: {
@@ -276,10 +288,45 @@ let RequestsService = class RequestsService {
             data.started_at = new Date();
         if (status === 'completed')
             data.completed_at = new Date();
+        const nurse = await this.prisma.user.findUnique({
+            where: { id: nurseId },
+            include: { nurse_profile: true },
+        });
+        const nurseName = nurse?.nurse_profile
+            ? `${nurse.nurse_profile.first_name || ''} ${nurse.nurse_profile.last_name || ''}`.trim()
+            : 'El enfermero';
         return this.prisma.$transaction(async (tx) => {
             const updated = await tx.serviceRequest.update({
                 where: { id: requestId },
                 data,
+            });
+            let title = '';
+            let desc = '';
+            if (status === 'en_camino') {
+                title = 'Enfermero en camino';
+                desc = `${nurseName} está en camino a tu ubicación.`;
+            }
+            else if (status === 'arrived') {
+                title = 'Enfermero llegó';
+                desc = `${nurseName} ha llegado a tu ubicación.`;
+            }
+            else if (status === 'in_progress') {
+                title = 'Servicio iniciado';
+                desc = `${nurseName} ha comenzado el servicio.`;
+            }
+            else if (status === 'completed') {
+                title = 'Servicio completado';
+                desc = `El servicio ha sido completado por ${nurseName}.`;
+            }
+            else {
+                title = 'Estado actualizado';
+                desc = `El estado de tu solicitud cambió a ${status}.`;
+            }
+            this.chatGateway.sendNotificationToUser(updated.patient_user_id, {
+                type: 'request_status',
+                title,
+                desc,
+                requestId: updated.id,
             });
             await tx.serviceRequestStatusHistory.create({
                 data: {
@@ -407,6 +454,7 @@ let RequestsService = class RequestsService {
 exports.RequestsService = RequestsService;
 exports.RequestsService = RequestsService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        chat_gateway_1.ChatGateway])
 ], RequestsService);
 //# sourceMappingURL=requests.service.js.map
